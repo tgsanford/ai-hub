@@ -1,0 +1,310 @@
+<main class="shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="mark">AI</div>
+      <div>
+        <strong>OpenAIwork</strong>
+        <span>Harness</span>
+      </div>
+    </div>
+
+    <nav class="tabs" aria-label="Harness sections">
+      <button
+        *ngFor="let tab of tabs"
+        type="button"
+        [class.active]="activeTab() === tab.id"
+        (click)="activeTab.set(tab.id)"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
+
+    <section class="conversation-list">
+      <div class="panel-heading">
+        <span>Conversations</span>
+        <button class="icon-button" type="button" title="New conversation" (click)="createConversation()">+</button>
+      </div>
+
+      <button
+        *ngFor="let conversation of conversations()"
+        type="button"
+        class="conversation-item"
+        [class.active]="activeConversationId() === conversation.id"
+        (click)="selectConversation(conversation)"
+      >
+        <strong>{{ conversation.title }}</strong>
+        <span>{{ conversation.mode }} · {{ conversation.model }}</span>
+      </button>
+
+      <p *ngIf="!conversations().length" class="empty">No sessions yet.</p>
+    </section>
+  </aside>
+
+  <section class="workspace">
+    <header class="topbar">
+      <div class="control-grid">
+        <label class="field">
+          <span>Mode</span>
+          <select [ngModel]="selectedMode()" (ngModelChange)="selectedMode.set($event)">
+            <option *ngFor="let mode of modes" [value]="mode.id">{{ mode.label }}</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Model</span>
+          <select [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
+            <option *ngFor="let model of models()" [value]="model">{{ model }}</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="status">
+        <span [class.ready]="settings()?.hasOpenAiKey">{{ status() }}</span>
+        <button class="secondary-button" type="button" (click)="refreshAll()" [disabled]="busy()">Refresh</button>
+      </div>
+    </header>
+
+    <section class="content" [ngSwitch]="activeTab()">
+      <section *ngSwitchCase="'chat'" class="chat-pane">
+        <div class="messages" aria-live="polite">
+          <article *ngFor="let message of activeConversation()?.messages" class="message" [class.user]="message.role === 'user'">
+            <div class="message-meta">{{ message.role }} · {{ message.mode }}</div>
+            <pre>{{ message.content }}</pre>
+          </article>
+
+          <div *ngIf="!activeConversation()" class="empty-state">
+            <h1>AI workbench</h1>
+            <p>Create a session and start shaping code, docs, reviews, product output, or general AI conversations.</p>
+            <button class="primary-button" type="button" (click)="createConversation()">Start session</button>
+          </div>
+        </div>
+
+        <form class="composer" (ngSubmit)="sendMessage()">
+          <div class="composer-main">
+            <div class="attachment-strip">
+              <span>{{ selectedFileLabel() }}</span>
+              <button
+                *ngFor="let file of files().slice(0, 4)"
+                type="button"
+                [class.active]="selectedFileIds().includes(file.id)"
+                (click)="toggleFile(file.id)"
+              >
+                {{ file.originalName }}
+              </button>
+            </div>
+            <textarea
+              [ngModel]="draft()"
+              (ngModelChange)="draft.set($event)"
+              name="draft"
+              placeholder="Describe the task, paste code, ask for docs, or request product output."
+            ></textarea>
+          </div>
+          <button class="primary-button" type="submit" [disabled]="busy() || !draft().trim()">Send</button>
+        </form>
+      </section>
+
+      <section *ngSwitchCase="'templates'" class="templates-pane">
+        <section class="template-catalog">
+          <header>
+            <h1>Templates\Task</h1>
+            <span>{{ templates.length }} workflows</span>
+          </header>
+
+          <button
+            *ngFor="let template of templates"
+            type="button"
+            class="workflow-card"
+            [class.active]="activeTemplate().id === template.id"
+            (click)="selectTemplate(template)"
+          >
+            <strong>{{ template.label }}</strong>
+            <span>{{ template.tagline }}</span>
+            <small>{{ template.mode }} · {{ template.output }}</small>
+          </button>
+        </section>
+
+        <section class="workflow-builder">
+          <header>
+            <div>
+              <h1>{{ activeTemplate().label }}</h1>
+              <p>{{ activeTemplate().tagline }}</p>
+            </div>
+            <button class="primary-button" type="button" (click)="launchWorkflow()">Launch</button>
+          </header>
+
+          <div class="workflow-strip">
+            <div class="workflow-step active">Frame</div>
+            <div class="workflow-step">Context</div>
+            <div class="workflow-step">Output</div>
+          </div>
+
+          <div class="workflow-context">
+            <div>
+              <span>AI mode</span>
+              <strong>{{ activeTemplate().mode }}</strong>
+            </div>
+            <div>
+              <span>Target output</span>
+              <strong>{{ activeTemplate().output }}</strong>
+            </div>
+            <div>
+              <span>Files</span>
+              <strong>{{ selectedFileLabel() }}</strong>
+            </div>
+          </div>
+
+          <div class="block-grid">
+            <label *ngFor="let block of workflowBlocks()" class="field workflow-block">
+              <span>{{ block.label }}</span>
+              <textarea
+                [ngModel]="block.value"
+                (ngModelChange)="updateBlock(block.id, $event)"
+                [placeholder]="block.placeholder"
+              ></textarea>
+            </label>
+          </div>
+
+          <section class="file-picker">
+            <header>
+              <h2>Attach Context</h2>
+              <span>{{ selectedFileLabel() }}</span>
+            </header>
+            <div class="file-chip-grid" *ngIf="files().length; else noTemplateFiles">
+              <button
+                *ngFor="let file of files()"
+                type="button"
+                [class.active]="selectedFileIds().includes(file.id)"
+                (click)="toggleFile(file.id)"
+              >
+                {{ file.originalName }}
+              </button>
+            </div>
+            <ng-template #noTemplateFiles>
+              <p class="empty">Upload files first to use them as workflow context.</p>
+            </ng-template>
+          </section>
+
+          <footer class="workflow-actions">
+            <button class="secondary-button" type="button" (click)="useTemplateOnly(activeTemplate())">Ask for details</button>
+            <button class="primary-button" type="button" (click)="launchWorkflow()">Build prompt</button>
+          </footer>
+        </section>
+      </section>
+
+      <section *ngSwitchCase="'files'" class="tool-pane">
+        <header>
+          <h1>Files</h1>
+          <label class="upload-button">
+            <input type="file" multiple (change)="upload($event)">
+            Upload
+          </label>
+        </header>
+
+        <div class="table">
+          <div class="table-row table-head">
+            <span>Name</span>
+            <span>Type</span>
+            <span>Size</span>
+            <span>Added</span>
+          </div>
+          <div *ngFor="let file of files()" class="table-row">
+            <span>{{ file.originalName }}</span>
+            <span>{{ file.mimeType || 'unknown' }}</span>
+            <span>{{ formatBytes(file.size) }}</span>
+            <span>{{ file.createdAt | date:'short' }}</span>
+          </div>
+        </div>
+
+        <p *ngIf="!files().length" class="empty">No files uploaded.</p>
+      </section>
+
+      <section *ngSwitchCase="'outputs'" class="outputs-pane">
+        <div class="artifact-list">
+          <header>
+            <h1>Outputs</h1>
+            <span>{{ artifacts().length }} saved</span>
+          </header>
+
+          <button
+            *ngFor="let artifact of artifacts()"
+            type="button"
+            class="artifact-item"
+            [class.active]="previewArtifact()?.id === artifact.id"
+            (click)="previewArtifact.set(artifact)"
+          >
+            <strong>{{ artifact.title }}</strong>
+            <span>{{ artifact.kind }} · {{ artifact.createdAt | date:'short' }}</span>
+          </button>
+
+          <p *ngIf="!artifacts().length" class="empty">Generated code blocks, docs, and product outputs will appear here.</p>
+        </div>
+
+        <article class="artifact-preview" *ngIf="previewArtifact(); else noArtifact">
+          <header>
+            <div>
+              <h1>{{ previewArtifact()?.title }}</h1>
+              <span>{{ previewArtifact()?.kind }}</span>
+            </div>
+          </header>
+          <pre>{{ previewArtifact()?.content }}</pre>
+        </article>
+
+        <ng-template #noArtifact>
+          <div class="empty-state">
+            <h1>No output selected</h1>
+            <p>Run a code, docs, or product task to create a saved output.</p>
+          </div>
+        </ng-template>
+      </section>
+
+      <section *ngSwitchCase="'models'" class="tool-pane">
+        <header>
+          <h1>Models</h1>
+          <button class="secondary-button" type="button" (click)="refreshModels()">Reload models</button>
+        </header>
+
+        <p class="muted">Source: {{ modelSource() }}</p>
+
+        <div class="model-grid">
+          <button
+            *ngFor="let model of models()"
+            type="button"
+            [class.active]="selectedModel() === model"
+            (click)="selectedModel.set(model)"
+          >
+            {{ model }}
+          </button>
+        </div>
+      </section>
+
+      <section *ngSwitchCase="'settings'" class="tool-pane settings-pane">
+        <header>
+          <h1>Settings</h1>
+          <button class="primary-button" type="button" (click)="saveSettings()" [disabled]="busy()">Save</button>
+        </header>
+
+        <div class="settings-grid">
+          <label class="field">
+            <span>OpenAI API key</span>
+            <input
+              type="password"
+              autocomplete="off"
+              [ngModel]="apiKeyDraft()"
+              (ngModelChange)="apiKeyDraft.set($event)"
+              placeholder="Leave blank to keep existing key"
+            >
+          </label>
+
+          <label class="field">
+            <span>Default model</span>
+            <input [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
+          </label>
+        </div>
+
+        <p class="muted">
+          Key configured: {{ settings()?.hasOpenAiKey ? 'yes' : 'no' }}. UI-saved keys are local development storage only.
+        </p>
+      </section>
+    </section>
+  </section>
+</main>

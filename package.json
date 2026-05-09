@@ -1,0 +1,46 @@
+{
+  "name": "openaiwork-harness",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Angular and API harness for AI model configuration, files, conversations, coding, docs, and product output.",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "tsx watch apps/api/src/server.ts",
+    "dev:web": "ng serve web --host 0.0.0.0 --port 4200",
+    "build": "npm run build:api && npm run build:web",
+    "build:api": "tsc -p apps/api/tsconfig.json",
+    "build:web": "ng build web",
+    "typecheck": "npm run build:api && npm run build:web"
+  },
+  "dependencies": {
+    "@angular/animations": "^20.3.0",
+    "@angular/common": "^20.3.0",
+    "@angular/compiler": "^20.3.0",
+    "@angular/core": "^20.3.0",
+    "@angular/forms": "^20.3.0",
+    "@angular/platform-browser": "^20.3.0",
+    "@angular/router": "^20.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "helmet": "^8.1.0",
+    "multer": "^2.0.2",
+    "openai": "^6.9.1",
+    "rxjs": "^7.8.2",
+    "zod": "^4.1.12",
+    "zone.js": "^0.15.1"
+  },
+  "devDependencies": {
+    "@angular/build": "^20.3.8",
+    "@angular/cli": "^20.3.8",
+    "@angular/compiler-cli": "^20.3.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.5",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.10.2",
+    "concurrently": "^9.2.1",
+    "tsx": "^4.20.6",
+    "typescript": "~5.9.3"
+  }
+}
