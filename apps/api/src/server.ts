@@ -43,8 +43,11 @@ app.use(helmet({
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
       frameSrc: ["'none'"],
+      upgradeInsecureRequests: null, // Explicitly disable HTTPS upgrade for HTTP deployment
     },
   },
+  crossOriginOpenerPolicy: false, // Disable COOP for HTTP
+  crossOriginResourcePolicy: false, // Disable CORP for HTTP  
   hsts: false, // Disable HSTS for HTTP deployment
 }));
 app.use(cors({ origin: process.env['WEB_ORIGIN'] || 'http://localhost:4200' }));
