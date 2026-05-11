@@ -539,6 +539,22 @@ async function updateConversation(id: string, mutator: (conversation: HarnessCon
   });
 }
 
+// Serve static Angular files in production (must be before error handler)
+if (process.env['NODE_ENV'] === 'production') {
+  const distPath = path.resolve(process.cwd(), 'dist/web/browser');
+  app.use(express.static(distPath));
+  
+  // Fallback to index.html for all non-API routes (Angular SPA)
+  app.use((req, res, next) => {
+    // Only serve index.html for non-API routes
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      next();
+    }
+  });
+}
+
 app.use((error: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error(error);
 
@@ -549,17 +565,6 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
 
   res.status(500).json({ error: error instanceof Error ? error.message : 'Unexpected server error' });
 });
-
-// Serve static Angular files in production
-if (process.env['NODE_ENV'] === 'production') {
-  const distPath = path.resolve(process.cwd(), 'dist/web/browser');
-  app.use(express.static(distPath));
-  
-  // Fallback to index.html for Angular routes (Express 5 syntax)
-  app.get('(.*)', (req, res) => {
-    res.sendFile(path.join(distPath, 'index.html'));
-  });
-}
 
 const host = process.env['HOST'] || '0.0.0.0';
 app.listen(port, host, () => {
