@@ -47,7 +47,21 @@ export type HarnessConversation = {
   model: string;
   mode: HarnessMode;
   responseId?: string;
+  projectId?: string;
   messages: HarnessMessage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type HarnessProject = {
+  id: string;
+  templateId: string;
+  title: string;
+  mode: HarnessMode;
+  blocks: Record<string, any>;
+  fileIds: string[];
+  conversationIds: string[];
+  artifactIds: string[];
   createdAt: string;
   updatedAt: string;
 };
@@ -57,6 +71,7 @@ type HarnessStore = {
   files: HarnessFile[];
   conversations: HarnessConversation[];
   artifacts: HarnessArtifact[];
+  projects: HarnessProject[];
 };
 
 const defaultStore: HarnessStore = {
@@ -66,7 +81,8 @@ const defaultStore: HarnessStore = {
   },
   files: [],
   conversations: [],
-  artifacts: []
+  artifacts: [],
+  projects: []
 };
 
 export function createId(prefix: string): string {

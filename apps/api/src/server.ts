@@ -134,6 +134,28 @@ app.post('/api/files', upload.array('files'), async (req, res, next) => {
   }
 });
 
+app.delete('/api/files/:id', async (req, res, next) => {
+  try {
+    const fileId = req.params.id;
+    const store = await updateStore((draft) => {
+      const index = draft.files.findIndex((item) => item.id === fileId);
+      if (index !== -1) {
+        draft.files.splice(index, 1);
+      }
+    });
+
+    const found = store.files.every((item) => item.id !== fileId);
+    if (!found) {
+      res.status(404).json({ error: 'File not found' });
+      return;
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get('/api/conversations', async (_req, res, next) => {
   try {
     const store = await readStore();
@@ -147,22 +169,35 @@ app.post('/api/conversations', async (req, res, next) => {
   const schema = z.object({
     title: z.string().trim().min(1).default('New conversation'),
     model: z.string().trim().optional(),
-    mode: HarnessModeSchema.default('chat')
+    mode: HarnessModeSchema.default('chat'),
+    projectId: z.string().trim().optional()
   });
 
   try {
     const input = schema.parse(req.body);
     const now = new Date().toISOString();
     const store = await updateStore((draft) => {
-      draft.conversations.unshift({
+      const conversation = {
         id: createId('conv'),
         title: input.title,
         model: input.model || draft.settings.defaultModel,
         mode: input.mode,
+        projectId: input.projectId,
         messages: [],
         createdAt: now,
         updatedAt: now
-      });
+      };
+
+      draft.conversations.unshift(conversation);
+
+      // If this conversation belongs to a project, add it to the project's conversationIds
+      if (input.projectId) {
+        const project = draft.projects.find((p) => p.id === input.projectId);
+        if (project) {
+          project.conversationIds.push(conversation.id);
+          project.updatedAt = now;
+        }
+      }
     });
 
     res.status(201).json(store.conversations[0]);
@@ -265,6 +300,159 @@ app.post('/api/conversations/:id/messages', async (req, res, next) => {
 
     sendEvent(res, 'done', { message: assistantMessage });
     res.end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/conversations/:id', async (req, res, next) => {
+  try {
+    const conversationId = req.params.id;
+    const store = await updateStore((draft) => {
+      const index = draft.conversations.findIndex((item) => item.id === conversationId);
+      if (index !== -1) {
+        draft.conversations.splice(index, 1);
+      }
+    });
+
+    const found = store.conversations.every((item) => item.id !== conversationId);
+    if (!found) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
+
+    res.status(204).end();
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/projects', async (_req, res, next) => {
+  try {
+    const store = await readStore();
+    res.json(store.projects);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post('/api/projects', async (req, res, next) => {
+  const schema = z.object({
+    templateId: z.string().trim().min(1),
+    title: z.string().trim().min(1),
+    mode: HarnessModeSchema,
+    blocks: z.record(z.any()).default({}),
+    fileIds: z.array(z.string()).default([])
+  });
+
+  try {
+    const input = schema.parse(req.body);
+    const now = new Date().toISOString();
+    const store = await updateStore((draft) => {
+      draft.projects.unshift({
+        id: createId('proj'),
+        templateId: input.templateId,
+        title: input.title,
+        mode: input.mode,
+        blocks: input.blocks,
+        fileIds: input.fileIds,
+        conversationIds: [],
+        artifactIds: [],
+        createdAt: now,
+        updatedAt: now
+      });
+    });
+
+    res.status(201).json(store.projects[0]);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get('/api/projects/:id', async (req, res, next) => {
+  try {
+    const store = await readStore();
+    const project = store.projects.find((item) => item.id === req.params.id);
+
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    const conversations = store.conversations.filter((c) => c.projectId === project.id);
+    const files = store.files.filter((f) => project.fileIds.includes(f.id));
+    const artifacts = store.artifacts.filter((a) => project.artifactIds.includes(a.id));
+
+    res.json({
+      ...project,
+      conversations,
+      files,
+      artifacts
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.put('/api/projects/:id', async (req, res, next) => {
+  const schema = z.object({
+    title: z.string().trim().min(1)
+  });
+
+  try {
+    const projectId = req.params.id;
+    const input = schema.parse(req.body);
+    const now = new Date().toISOString();
+    
+    const store = await updateStore((draft) => {
+      const project = draft.projects.find((item) => item.id === projectId);
+      if (project) {
+        project.title = input.title;
+        project.updatedAt = now;
+      }
+    });
+
+    const updatedProject = store.projects.find((item) => item.id === projectId);
+    if (!updatedProject) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    res.json(updatedProject);
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.delete('/api/projects/:id', async (req, res, next) => {
+  try {
+    const projectId = req.params.id;
+    const store = await updateStore((draft) => {
+      const project = draft.projects.find((item) => item.id === projectId);
+      if (!project) {
+        return;
+      }
+
+      // Remove associated conversations
+      draft.conversations = draft.conversations.filter((c) => c.projectId !== projectId);
+
+      // Remove associated artifacts
+      draft.artifacts = draft.artifacts.filter((a) => !project.artifactIds.includes(a.id));
+
+      // Remove the project itself
+      const index = draft.projects.findIndex((item) => item.id === projectId);
+      if (index !== -1) {
+        draft.projects.splice(index, 1);
+      }
+    });
+
+    const found = store.projects.some((item) => item.id === projectId);
+    if (found) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+
+    res.status(204).end();
   } catch (error) {
     next(error);
   }

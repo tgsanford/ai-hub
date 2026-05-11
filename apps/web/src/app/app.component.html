@@ -32,8 +32,20 @@
         [class.active]="activeConversationId() === conversation.id"
         (click)="selectConversation(conversation)"
       >
-        <strong>{{ conversation.title }}</strong>
-        <span>{{ conversation.mode }} · {{ conversation.model }}</span>
+        <div class="conversation-content">
+          <strong>{{ conversation.title }}</strong>
+          <span>{{ conversation.mode }} · {{ conversation.model }}</span>
+        </div>
+        <button
+          type="button"
+          class="delete-conversation-btn"
+          title="Delete conversation"
+          (click)="deleteConversation(conversation.id, $event)"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+          </svg>
+        </button>
       </button>
 
       <p *ngIf="!conversations().length" class="empty">No sessions yet.</p>
@@ -43,13 +55,6 @@
   <section class="workspace">
     <header class="topbar">
       <div class="control-grid">
-        <label class="field">
-          <span>Mode</span>
-          <select [ngModel]="selectedMode()" (ngModelChange)="selectedMode.set($event)">
-            <option *ngFor="let mode of modes" [value]="mode.id">{{ mode.label }}</option>
-          </select>
-        </label>
-
         <label class="field">
           <span>Model</span>
           <select [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
@@ -66,61 +71,228 @@
 
     <section class="content" [ngSwitch]="activeTab()">
       <section *ngSwitchCase="'chat'" class="chat-pane">
-        <div class="messages" aria-live="polite">
-          <article *ngFor="let message of activeConversation()?.messages" class="message" [class.user]="message.role === 'user'">
-            <div class="message-meta">{{ message.role }} · {{ message.mode }}</div>
-            <pre>{{ message.content }}</pre>
+        <div class="chat-header" *ngIf="activeConversation()">
+          <div class="chat-info">
+            <h2>{{ activeConversation()?.title }}</h2>
+            <span class="meta">{{ activeConversation()?.messages.length || 0 }} messages</span>
+          </div>
+          <button class="icon-button" type="button" title="Export conversation" (click)="exportConversation()">
+            <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M8.5 6.5a.5.5 0 0 0-1 0v3.793L6.354 9.146a.5.5 0 1 0-.708.708l2 2a.5.5 0 0 0 .708 0l2-2a.5.5 0 0 0-.708-.708L8.5 10.293V6.5z"/>
+              <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+            </svg>
+          </button>
+        </div>
+
+        <div class="messages" #messagesContainer aria-live="polite">
+          <article *ngFor="let message of activeConversation()?.messages; let i = index" 
+                   class="message" 
+                   [class.user]="message.role === 'user'"
+                   [class.assistant]="message.role === 'assistant'">
+            <div class="message-header">
+              <div class="message-meta">
+                <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}</strong>
+                <span class="mode-badge">{{ message.mode }}</span>
+                <span class="timestamp">{{ formatTime(message.createdAt) }}</span>
+              </div>
+              <button class="copy-btn" type="button" title="Copy message" (click)="copyMessage(message.content)">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                  <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                </svg>
+              </button>
+            </div>
+            <div class="message-content" [innerHTML]="message.content | markdown"></div>
+          </article>
+
+          <!-- Streaming Indicator -->
+          <article *ngIf="isStreaming()" class="message assistant streaming">
+            <div class="message-header">
+              <div class="message-meta">
+                <strong>Assistant</strong>
+                <span class="mode-badge">{{ selectedMode() }}</span>
+                <span class="timestamp">now</span>
+              </div>
+              <div class="typing-indicator">
+                <span></span><span></span><span></span>
+              </div>
+            </div>
+            <div class="message-content streaming-content" [innerHTML]="streamingContent() | markdown"></div>
           </article>
 
           <div *ngIf="!activeConversation()" class="empty-state">
-            <h1>AI workbench</h1>
+            <div class="empty-icon">💬</div>
+            <h1>AI Workbench</h1>
             <p>Create a session and start shaping code, docs, reviews, product output, or general AI conversations.</p>
-            <button class="primary-button" type="button" (click)="createConversation()">Start session</button>
+            <button class="primary-button" type="button" (click)="createConversation()">Start New Session</button>
+            
+            <div class="quick-prompts" *ngIf="quickPrompts.length">
+              <p class="quick-prompts-label">Or try a quick prompt:</p>
+              <button 
+                *ngFor="let prompt of quickPrompts" 
+                type="button" 
+                class="quick-prompt-btn"
+                (click)="useQuickPrompt(prompt); createConversation()">
+                {{ prompt.label }}
+              </button>
+            </div>
           </div>
         </div>
 
         <form class="composer" (ngSubmit)="sendMessage()">
           <div class="composer-main">
             <div class="attachment-strip">
-              <span>{{ selectedFileLabel() }}</span>
+              <span class="file-count">{{ selectedFileLabel() }}</span>
               <button
-                *ngFor="let file of files().slice(0, 4)"
+                *ngFor="let file of files().slice(0, 5)"
                 type="button"
+                class="file-chip"
                 [class.active]="selectedFileIds().includes(file.id)"
                 (click)="toggleFile(file.id)"
+                [title]="file.originalName"
               >
-                {{ file.originalName }}
+                📎 {{ file.originalName }}
               </button>
             </div>
             <textarea
               [ngModel]="draft()"
               (ngModelChange)="draft.set($event)"
+              (keydown.enter)="onTextareaKeydown($event)"
               name="draft"
-              placeholder="Describe the task, paste code, ask for docs, or request product output."
+              rows="3"
+              placeholder="Type your message (Enter to send, Shift+Enter for new line)..."
             ></textarea>
           </div>
-          <button class="primary-button" type="submit" [disabled]="busy() || !draft().trim()">Send</button>
+          <div class="composer-actions">
+            <div class="quick-actions">
+              <button 
+                *ngFor="let prompt of quickPrompts.slice(0, 3)" 
+                type="button" 
+                class="quick-action-btn"
+                title="Use this prompt"
+                (click)="useQuickPrompt(prompt)">
+                {{ prompt.label }}
+              </button>
+            </div>
+            <button class="primary-button send-btn" type="submit" [disabled]="busy() || !draft().trim()">
+              <span *ngIf="!busy()">Send</span>
+              <span *ngIf="busy()" class="loading">Sending...</span>
+            </button>
+          </div>
         </form>
+      </section>
+
+      <section *ngSwitchCase="'projects'" class="tool-pane">
+        <header>
+          <h1>Projects</h1>
+          <span>{{ projects().length }} active</span>
+        </header>
+
+        <div class="projects-grid">
+          <div *ngFor="let project of projects()" class="project-card">
+            <div class="project-header">
+              <div class="project-info" (click)="selectProject(project)">
+                <strong>{{ project.title }}</strong>
+                <span class="project-meta">{{ project.mode }} · Created {{ formatTime(project.createdAt) }}</span>
+              </div>
+              <div class="project-actions">
+                <button
+                  type="button"
+                  class="edit-btn"
+                  title="Rename project"
+                  (click)="renameProject(project.id, $event)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                </button>
+                <button
+                  type="button"
+                  class="delete-btn"
+                  title="Delete project"
+                  (click)="deleteProject(project.id, $event)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="project-stats">
+              <div class="stat">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M2.5 1A1.5 1.5 0 0 0 1 2.5v11A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11zm5 2.5c0-.276.224-.5.5-.5h1c.276 0 .5.224.5.5v1c0 .276-.224.5-.5.5H8a.5.5 0 0 1-.5-.5v-1z"/>
+                </svg>
+                <span>{{ project.conversationIds.length }} conversations</span>
+              </div>
+              <div class="stat">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                </svg>
+                <span>{{ project.fileIds.length }} files</span>
+              </div>
+              <div class="stat">
+                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                </svg>
+                <span>{{ project.artifactIds.length }} outputs</span>
+              </div>
+            </div>
+            <button 
+              type="button" 
+              class="open-project-btn"
+              (click)="selectProject(project)"
+            >
+              Open Project
+            </button>
+          </div>
+        </div>
+
+        <p *ngIf="!projects().length" class="empty">No projects yet. Create one from a template!</p>
       </section>
 
       <section *ngSwitchCase="'templates'" class="templates-pane">
         <section class="template-catalog">
           <header>
             <h1>Templates\Task</h1>
-            <span>{{ templates.length }} workflows</span>
+            <span>{{ filteredTemplates().length }} of {{ templates().length }} workflows</span>
           </header>
 
-          <button
-            *ngFor="let template of templates"
-            type="button"
-            class="workflow-card"
-            [class.active]="activeTemplate().id === template.id"
-            (click)="selectTemplate(template)"
-          >
-            <strong>{{ template.label }}</strong>
-            <span>{{ template.tagline }}</span>
-            <small>{{ template.mode }} · {{ template.output }}</small>
-          </button>
+          <!-- Category Filter Buttons -->
+          <div class="category-filters">
+            <button
+              *ngFor="let category of categories"
+              type="button"
+              class="category-btn"
+              [class.active]="selectedCategory() === category.id"
+              [title]="category.description"
+              (click)="selectedCategory.set(category.id)"
+            >
+              {{ category.label }}
+            </button>
+          </div>
+
+          <div cdkDropList (cdkDropListDropped)="reorderTemplates($event)">
+            <button
+              *ngFor="let template of filteredTemplates()"
+              type="button"
+              class="workflow-card"
+              cdkDrag
+              [class.active]="activeTemplate().id === template.id"
+              (click)="selectTemplate(template)"
+            >
+              <svg class="drag-handle" cdkDragHandle width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+              </svg>
+              <div class="workflow-card-content">
+                <strong>{{ template.label }}</strong>
+                <span>{{ template.tagline }}</span>
+                <small>{{ template.mode }} · {{ template.output }}</small>
+              </div>
+            </button>
+          </div>
         </section>
 
         <section class="workflow-builder">
@@ -133,9 +305,30 @@
           </header>
 
           <div class="workflow-strip">
-            <div class="workflow-step active">Frame</div>
-            <div class="workflow-step">Context</div>
-            <div class="workflow-step">Output</div>
+            <button 
+              type="button" 
+              class="workflow-step" 
+              [class.active]="activeWorkflowStep() === 'frame'"
+              (click)="goToWorkflowStep('frame')"
+            >
+              Frame
+            </button>
+            <button 
+              type="button" 
+              class="workflow-step" 
+              [class.active]="activeWorkflowStep() === 'context'"
+              (click)="goToWorkflowStep('context')"
+            >
+              Context
+            </button>
+            <button 
+              type="button" 
+              class="workflow-step" 
+              [class.active]="activeWorkflowStep() === 'output'"
+              (click)="goToWorkflowStep('output')"
+            >
+              Output
+            </button>
           </div>
 
           <div class="workflow-context">
@@ -154,9 +347,29 @@
           </div>
 
           <div class="block-grid">
-            <label *ngFor="let block of workflowBlocks()" class="field workflow-block">
+            <label *ngFor="let block of workflowBlocks(); trackBy: trackByBlockId" class="field workflow-block" [class.checkbox-field]="block.type === 'checkbox'">
               <span>{{ block.label }}</span>
+              <select 
+                *ngIf="block.type === 'select' || (block.options && block.type !== 'checkbox')"
+                [ngModel]="block.value"
+                (ngModelChange)="updateBlock(block.id, $event)"
+              >
+                <option value="">{{ block.placeholder }}</option>
+                <option *ngFor="let option of block.options" [value]="option">{{ option }}</option>
+              </select>
+              <div *ngIf="block.type === 'checkbox'" class="checkbox-wrapper">
+                <input 
+                  type="checkbox"
+                  [id]="'checkbox-' + block.id"
+                  [checked]="block.checked"
+                  (change)="toggleCheckbox(block.id)"
+                />
+                <label [for]="'checkbox-' + block.id" class="checkbox-label">
+                  {{ block.label }}
+                </label>
+              </div>
               <textarea
+                *ngIf="(!block.options && block.type !== 'checkbox' && block.type !== 'select') || block.type === 'text'"
                 [ngModel]="block.value"
                 (ngModelChange)="updateBlock(block.id, $event)"
                 [placeholder]="block.placeholder"
@@ -167,7 +380,16 @@
           <section class="file-picker">
             <header>
               <h2>Attach Context</h2>
-              <span>{{ selectedFileLabel() }}</span>
+              <div class="file-picker-controls">
+                <span>{{ selectedFileLabel() }}</span>
+                <label class="upload-button-small">
+                  <input type="file" multiple (change)="upload($event)">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+                  </svg>
+                  Upload
+                </label>
+              </div>
             </header>
             <div class="file-chip-grid" *ngIf="files().length; else noTemplateFiles">
               <button
@@ -180,7 +402,7 @@
               </button>
             </div>
             <ng-template #noTemplateFiles>
-              <p class="empty">Upload files first to use them as workflow context.</p>
+              <p class="empty">Upload files to use them as workflow context.</p>
             </ng-template>
           </section>
 
@@ -188,6 +410,88 @@
             <button class="secondary-button" type="button" (click)="useTemplateOnly(activeTemplate())">Ask for details</button>
             <button class="primary-button" type="button" (click)="launchWorkflow()">Build prompt</button>
           </footer>
+
+          <!-- Template Conversation Area -->
+          <section class="template-conversation" *ngIf="activeTemplateId()">
+            <header class="conversation-header">
+              <h2>Conversation</h2>
+              <div class="conversation-actions">
+                <span class="meta">{{ templateMessages().length }} messages</span>
+                <button class="icon-button" type="button" title="Start new conversation" (click)="clearTemplateConversation()">
+                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
+                  </svg>
+                </button>
+              </div>
+            </header>
+
+            <div class="messages template-messages" #templateMessagesContainer aria-live="polite">
+              <article *ngFor="let message of templateMessages(); let i = index" 
+                       class="message" 
+                       [class.user]="message.role === 'user'"
+                       [class.assistant]="message.role === 'assistant'">
+                <div class="message-header">
+                  <div class="message-meta">
+                    <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}</strong>
+                    <span class="mode-badge">{{ message.mode }}</span>
+                    <span class="timestamp">{{ formatTime(message.createdAt) }}</span>
+                  </div>
+                  <button class="copy-btn" type="button" title="Copy message" (click)="copyMessage(message.content)">
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                      <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                    </svg>
+                  </button>
+                </div>
+                <div class="message-content" [innerHTML]="message.content | markdown"></div>
+              </article>
+
+              <!-- Streaming indicator -->
+              <article *ngIf="isStreaming()" class="message assistant streaming-message">
+                <div class="message-header">
+                  <div class="message-meta">
+                    <strong>Assistant</strong>
+                    <span class="mode-badge">{{ selectedMode() }}</span>
+                  </div>
+                </div>
+                <div class="message-content" [innerHTML]="streamingContent() | markdown"></div>
+                <div class="typing-indicator">
+                  <span></span><span></span><span></span>
+                </div>
+              </article>
+
+              <div *ngIf="!templateMessages().length && !isStreaming()" class="empty-conversation">
+                <p>Fill out the template fields above and click Launch to start the conversation.</p>
+              </div>
+            </div>
+
+            <!-- Template Composer -->
+            <form class="composer template-composer" (submit)="sendMessage(); $event.preventDefault()">
+              <div class="composer-input">
+                <textarea
+                  [ngModel]="draft()"
+                  (ngModelChange)="draft.set($event)"
+                  (keydown.enter)="onTextareaKeydown($event)"
+                  name="draft"
+                  rows="3"
+                  placeholder="Continue the conversation (Enter to send, Shift+Enter for new line)..."
+                ></textarea>
+              </div>
+              <div class="composer-actions">
+                <button 
+                  type="button" 
+                  class="secondary-button"
+                  (click)="launchWorkflow()"
+                  title="Re-run with current parameters">
+                  Re-run
+                </button>
+                <button class="primary-button send-btn" type="submit" [disabled]="busy() || !draft().trim()">
+                  <span *ngIf="!busy()">Send</span>
+                  <span *ngIf="busy()" class="loading">Sending...</span>
+                </button>
+              </div>
+            </form>
+          </section>
         </section>
       </section>
 
@@ -206,12 +510,25 @@
             <span>Type</span>
             <span>Size</span>
             <span>Added</span>
+            <span>Action</span>
           </div>
           <div *ngFor="let file of files()" class="table-row">
             <span>{{ file.originalName }}</span>
             <span>{{ file.mimeType || 'unknown' }}</span>
             <span>{{ formatBytes(file.size) }}</span>
             <span>{{ file.createdAt | date:'short' }}</span>
+            <span>
+              <button
+                type="button"
+                class="delete-file-btn"
+                title="Delete file"
+                (click)="deleteFile(file.id)"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                </svg>
+              </button>
+            </span>
           </div>
         </div>
 

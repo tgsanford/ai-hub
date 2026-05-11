@@ -30,6 +30,7 @@ export type HarnessMessage = {
   content: string;
   mode: HarnessMode;
   createdAt: string;
+  templateId?: string; // Track which template generated this message
 };
 
 export type HarnessConversation = {
@@ -37,7 +38,21 @@ export type HarnessConversation = {
   title: string;
   model: string;
   mode: HarnessMode;
+  projectId?: string;
   messages: HarnessMessage[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type HarnessProject = {
+  id: string;
+  templateId: string;
+  title: string;
+  mode: HarnessMode;
+  blocks: Record<string, any>;
+  fileIds: string[];
+  conversationIds: string[];
+  artifactIds: string[];
   createdAt: string;
   updatedAt: string;
 };

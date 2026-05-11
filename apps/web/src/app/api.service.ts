@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import type { HarnessArtifact, HarnessConversation, HarnessFile, HarnessMode, ModelList, Settings } from './types';
+import type { HarnessArtifact, HarnessConversation, HarnessFile, HarnessMode, HarnessProject, ModelList, Settings } from './types';
 
 const apiBase = '/api';
 
@@ -39,8 +39,36 @@ export class ApiService {
     return firstValueFrom(this.http.get<HarnessConversation[]>(`${apiBase}/conversations`));
   }
 
-  createConversation(payload: { title: string; model: string; mode: HarnessMode }) {
+  createConversation(payload: { title: string; model: string; mode: HarnessMode; projectId?: string }) {
     return firstValueFrom(this.http.post<HarnessConversation>(`${apiBase}/conversations`, payload));
+  }
+
+  deleteConversation(conversationId: string) {
+    return firstValueFrom(this.http.delete(`${apiBase}/conversations/${conversationId}`));
+  }
+
+  deleteFile(fileId: string) {
+    return firstValueFrom(this.http.delete(`${apiBase}/files/${fileId}`));
+  }
+
+  getProjects() {
+    return firstValueFrom(this.http.get<HarnessProject[]>(`${apiBase}/projects`));
+  }
+
+  getProject(projectId: string) {
+    return firstValueFrom(this.http.get<HarnessProject & { conversations: HarnessConversation[]; files: HarnessFile[]; artifacts: HarnessArtifact[] }>(`${apiBase}/projects/${projectId}`));
+  }
+
+  createProject(payload: { templateId: string; title: string; mode: HarnessMode; blocks: Record<string, any>; fileIds: string[] }) {
+    return firstValueFrom(this.http.post<HarnessProject>(`${apiBase}/projects`, payload));
+  }
+
+  updateProject(projectId: string, payload: { title: string }) {
+    return firstValueFrom(this.http.put<HarnessProject>(`${apiBase}/projects/${projectId}`, payload));
+  }
+
+  deleteProject(projectId: string) {
+    return firstValueFrom(this.http.delete(`${apiBase}/projects/${projectId}`));
   }
 
   async sendMessage(

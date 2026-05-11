@@ -92,3 +92,88 @@ button:disabled {
 .muted {
   color: #68767f;
 }
+
+/* Code Syntax Highlighting - GitHub Dark Theme */
+.hljs {
+  background: #1e2933;
+  color: #e6edf3;
+  padding: 1em;
+  overflow-x: auto;
+}
+
+.hljs-comment,
+.hljs-quote {
+  color: #8b949e;
+  font-style: italic;
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-type {
+  color: #ff7b72;
+}
+
+.hljs-number {
+  color: #79c0ff;
+}
+
+.hljs-string,
+.hljs-doctag {
+  color: #a5d6ff;
+}
+
+.hljs-title,
+.hljs-section,
+.hljs-selector-id {
+  color: #d2a8ff;
+  font-weight: bold;
+}
+
+.hljs-subst,
+.hljs-tag,
+.hljs-name,
+.hljs-attribute {
+  color: #7ee787;
+}
+
+.hljs-variable,
+.hljs-template-variable,
+.hljs-selector-attr,
+.hljs-selector-pseudo {
+  color: #ffa657;
+}
+
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link,
+.hljs-meta,
+.hljs-builtin-name {
+  color: #79c0ff;
+}
+
+.hljs-built_in,
+.hljs-class,
+.hljs-title.class_ {
+  color: #f2cc60;
+}
+
+.hljs-emphasis {
+  font-style: italic;
+}
+
+.hljs-strong {
+  font-weight: bold;
+}
+
+.hljs-link {
+  text-decoration: underline;
+}
+
+.hljs-deletion {
+  background: #490202;
+}
+
+.hljs-addition {
+  background: #04260f;
+}
