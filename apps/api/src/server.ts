@@ -555,12 +555,13 @@ if (process.env['NODE_ENV'] === 'production') {
   const distPath = path.resolve(process.cwd(), 'dist/web/browser');
   app.use(express.static(distPath));
   
-  // Fallback to index.html for Angular routes
-  app.get('*', (req, res) => {
+  // Fallback to index.html for Angular routes (Express 5 syntax)
+  app.get('(.*)', (req, res) => {
     res.sendFile(path.join(distPath, 'index.html'));
   });
 }
 
-app.listen(port, () => {
-  console.log(`OpenAIwork API listening on http://localhost:${port}`);
+const host = process.env['HOST'] || '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`OpenAIwork API listening on http://${host}:${port}`);
 });
