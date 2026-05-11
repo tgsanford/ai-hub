@@ -550,6 +550,17 @@ app.use((error: unknown, _req: express.Request, res: express.Response, _next: ex
   res.status(500).json({ error: error instanceof Error ? error.message : 'Unexpected server error' });
 });
 
+// Serve static Angular files in production
+if (process.env['NODE_ENV'] === 'production') {
+  const distPath = path.resolve(process.cwd(), 'dist/web/browser');
+  app.use(express.static(distPath));
+  
+  // Fallback to index.html for Angular routes
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 app.listen(port, () => {
   console.log(`OpenAIwork API listening on http://localhost:${port}`);
 });

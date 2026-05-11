@@ -11,6 +11,7 @@
     "build": "npm run build:api && npm run build:web",
     "build:api": "tsc -p apps/api/tsconfig.json",
     "build:web": "ng build web",
+    "start": "NODE_ENV=production node dist/api/server.js",
     "typecheck": "npm run build:api && npm run build:web"
   },
   "dependencies": {
