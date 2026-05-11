@@ -544,13 +544,13 @@ if (process.env['NODE_ENV'] === 'production') {
   const distPath = path.resolve(process.cwd(), 'dist/web/browser');
   app.use(express.static(distPath));
   
-  // Fallback to index.html for all non-API routes (Angular SPA)
+  // Fallback to index.html for Angular routes (only for routes without file extensions)
   app.use((req, res, next) => {
-    // Only serve index.html for non-API routes
-    if (!req.path.startsWith('/api')) {
-      res.sendFile(path.join(distPath, 'index.html'));
-    } else {
+    // Skip if it's an API route or has a file extension
+    if (req.path.startsWith('/api') || req.path.includes('.')) {
       next();
+    } else {
+      res.sendFile(path.join(distPath, 'index.html'));
     }
   });
 }
