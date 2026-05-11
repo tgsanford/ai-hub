@@ -341,7 +341,7 @@ app.post('/api/projects', async (req, res, next) => {
     templateId: z.string().trim().min(1),
     title: z.string().trim().min(1),
     mode: HarnessModeSchema,
-    blocks: z.record(z.any()).default({}),
+    blocks: z.record(z.string(), z.any()).default({}),
     fileIds: z.array(z.string()).default([])
   });
 
