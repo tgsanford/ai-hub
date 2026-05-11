@@ -541,7 +541,7 @@ async function updateConversation(id: string, mutator: (conversation: HarnessCon
 
 // Serve static Angular files in production (must be before error handler)
 if (process.env['NODE_ENV'] === 'production') {
-  const distPath = path.resolve(process.cwd(), 'dist/web/browser');
+  const distPath = path.resolve(process.cwd(), 'dist/web');
   app.use(express.static(distPath));
   
   // Fallback to index.html for all non-API routes (Angular SPA)
