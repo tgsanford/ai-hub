@@ -5,7 +5,16 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 import { ApiService } from './api.service';
 import type { HarnessArtifact, HarnessConversation, HarnessFile, HarnessMessage, HarnessMode, HarnessProject, Settings } from './types';
 
-type Tab = 'chat' | 'projects' | 'templates' | 'files' | 'outputs' | 'models' | 'settings';
+type Tab = 'home' | 'projects' | 'library' | 'settings';
+type LibrarySubTab = 'templates' | 'files' | 'outputs';
+
+type ToastType = 'success' | 'error' | 'loading';
+type Toast = {
+  id: string;
+  message: string;
+  type: ToastType;
+  dismissible: boolean;
+};
 
 type WorkflowBlock = {
   id: string;
@@ -15,6 +24,9 @@ type WorkflowBlock = {
   options?: string[]; // For dropdown selections
   type?: 'text' | 'select' | 'checkbox'; // Field type
   checked?: boolean; // For checkbox state
+  example?: string; // Inline example text to guide users
+  helpText?: string; // Tooltip help text
+  maxLength?: number; // Character limit for text fields
 };
 
 type TemplateCategory = 'all' | 'development' | 'product' | 'quality' | 'documentation' | 'operations';
@@ -23,6 +35,7 @@ type TaskTemplate = {
   id: string;
   label: string;
   tagline: string;
+  description: string;
   mode: HarnessMode;
   category: TemplateCategory;
   output: string;
@@ -51,20 +64,50 @@ const templates: TaskTemplate[] = [
     id: 'feature-plan',
     label: 'Feature Blueprint',
     tagline: 'Turn an idea into a scoped product and engineering plan.',
+    description: `This template helps you transform a rough idea into a concrete, actionable product plan. Fill in what you envision, who will use it, any constraints you're working within, and how you'll measure success. The AI will generate a structured product brief with user stories, acceptance criteria, risk analysis, and phased implementation steps. Perfect for turning "we should build something" into "here's exactly what we're building and how."`,
     mode: 'product',
     category: 'product',
     output: 'Product brief, user stories, acceptance criteria, risks, and implementation phases',
     blocks: [
-      { id: 'vision', label: 'Vision', placeholder: 'What should exist when this is done?' },
-      { id: 'users', label: 'Users', placeholder: 'Who uses it, and what are they trying to accomplish?' },
-      { id: 'constraints', label: 'Constraints', placeholder: 'Timeline, tech stack, compliance, budget, launch limits.' },
-      { id: 'success', label: 'Success', placeholder: 'How will we know it worked?' }
+      { 
+        id: 'vision', 
+        label: 'Vision', 
+        placeholder: 'What should exist when this is done?',
+        example: 'A mobile app that lets remote teams play trivia games during virtual meetings',
+        helpText: 'Be specific about outcomes. What will users be able to do? Focus on the end state, not implementation details.',
+        maxLength: 500
+      },
+      { 
+        id: 'users', 
+        label: 'Users', 
+        placeholder: 'Who uses it, and what are they trying to accomplish?',
+        example: 'Remote team leads who want to build team engagement during weekly sync meetings',
+        helpText: 'Describe your target users and their core goals. What problem are they trying to solve?',
+        maxLength: 500
+      },
+      { 
+        id: 'constraints', 
+        label: 'Constraints', 
+        placeholder: 'Timeline, tech stack, compliance, budget, launch limits.',
+        example: 'Must work on mobile and desktop, launch in 3 months, GDPR compliant, budget $50k',
+        helpText: 'List any technical, business, or regulatory constraints that will shape this project.',
+        maxLength: 500
+      },
+      { 
+        id: 'success', 
+        label: 'Success', 
+        placeholder: 'How will we know it worked?',
+        example: '70% of teams use it weekly, 4.5+ star rating, 30% retention after 1 month',
+        helpText: 'Define measurable outcomes. What metrics or user behaviors indicate success?',
+        maxLength: 300
+      }
     ]
   },
   {
     id: 'code-review',
     label: 'Code Review Board',
     tagline: 'Review attached or pasted code like a senior engineer.',
+    description: `Get a thorough code review from an AI perspective. Describe what changed or which files to review, highlight specific risk areas you're concerned about (security, performance, etc.), and provide context about your system. You can attach code files or paste code directly. The AI will analyze your code with a senior engineer's eye, identifying bugs, security issues, performance problems, missing tests, and suggesting concrete improvements with prioritized findings.`,
     mode: 'review',
     category: 'quality',
     output: 'Prioritized findings, risk notes, missing tests, and recommended fixes',
@@ -78,6 +121,7 @@ const templates: TaskTemplate[] = [
     id: 'docs-kit',
     label: 'Documentation Kit',
     tagline: 'Produce docs that help someone actually ship or operate the thing.',
+    description: `Create comprehensive documentation that actually helps people use or maintain your project. Specify what needs documenting, who will read it (developers, operators, end users), what operations they need to perform (install, configure, troubleshoot), and the tone you want (technical, tutorial, reference). The AI will generate practical documentation including setup instructions, usage examples, troubleshooting guides, and operational notes—documentation people will actually read and find useful.`,
     mode: 'docs',
     category: 'documentation',
     output: 'README sections, usage guide, examples, troubleshooting, and operator notes',
@@ -92,6 +136,7 @@ const templates: TaskTemplate[] = [
     id: 'implementation',
     label: 'Implementation Sprint',
     tagline: 'Guide the model from requirement to file-by-file implementation.',
+    description: `Turn a feature request into actual code with a detailed implementation plan. Describe what behavior you want to add or fix, explain your existing architecture and patterns to follow, and specify how the change should be tested. The AI will break down the implementation into specific file changes, provide complete code blocks ready to use, and suggest verification steps to ensure correctness. Great for getting from "we need to add X" to "here's exactly how to code X."`,
     mode: 'code',
     category: 'development',
     output: 'Implementation plan, file changes, code blocks, verification steps',
@@ -105,6 +150,7 @@ const templates: TaskTemplate[] = [
     id: 'launch-campaign',
     label: 'Launch Campaign',
     tagline: 'Create the story, assets, and rollout sequence for a release.',
+    description: `Plan and execute a product launch with marketing materials, messaging, and a rollout strategy. Describe what you're launching and why it matters, define your target audience with their pain points, list your distribution channels (email, social, in-app, etc.), and specify your brand voice. The AI will create positioning statements, a detailed launch checklist, email copy, release notes, social media posts, and success metrics—everything you need to announce your product effectively.`,
     mode: 'product',
     category: 'product',
     output: 'Positioning, launch checklist, email copy, release notes, and success metrics',
@@ -119,6 +165,7 @@ const templates: TaskTemplate[] = [
     id: 'incident-response',
     label: 'Incident Commander',
     tagline: 'Turn a messy production incident into action, comms, and follow-up.',
+    description: `Manage a production incident systematically from chaos to resolution. Describe the symptoms (what's broken, who's affected), provide signals you're seeing (logs, metrics, errors), document actions you've taken, and specify communication needs (internal status, customer message, executive summary). The AI will help you triage effectively, draft customer communications, create an internal timeline, identify remediation steps, and outline a postmortem—turning incident chaos into structured response.`,
     mode: 'product',
     category: 'operations',
     output: 'Triage plan, customer update, internal timeline, remediation, and postmortem outline',
@@ -133,6 +180,7 @@ const templates: TaskTemplate[] = [
     id: 'research-synthesis',
     label: 'Research Synthesizer',
     tagline: 'Convert notes and files into decisions, themes, and next bets.',
+    description: `Turn scattered research into clear decisions and actionable insights. State your core question or what you're trying to decide, provide your sources (interview notes, data, constraints—you can attach files), and specify your decision lens (revenue impact, user value, feasibility, etc.). The AI will analyze everything, identify key themes, present supporting evidence, create a decision matrix to compare options, surface open questions, and recommend concrete next steps. Perfect for turning research into decisions.`,
     mode: 'product',
     category: 'product',
     output: 'Themes, evidence, decision matrix, open questions, and recommended next steps',
@@ -146,6 +194,7 @@ const templates: TaskTemplate[] = [
     id: 'code-translator',
     label: 'Code Translator',
     tagline: 'Convert code from one language to another with customizable output.',
+    description: `Translate code from one programming language to another while preserving functionality and adapting to language-specific idioms. Select your source and target languages, paste or describe your code, specify any requirements (frameworks, coding style, libraries), and choose what to include (documentation, examples, usage notes). The AI will convert your code to the target language using appropriate patterns and best practices, optionally adding helpful documentation and examples to make the translated code immediately usable.`,
     mode: 'code',
     category: 'development',
     output: 'Translated code with optional documentation, examples, and usage notes',
@@ -184,20 +233,23 @@ import { MarkdownPipe } from './markdown.pipe';
 })
 export class AppComponent implements OnInit {
   readonly tabs: { id: Tab; label: string }[] = [
-    { id: 'chat', label: 'Chat' },
+    { id: 'home', label: 'Home' },
     { id: 'projects', label: 'Projects' },
-    { id: 'templates', label: 'Templates\\Task' },
-    { id: 'files', label: 'Files' },
-    { id: 'outputs', label: 'Outputs' },
-    { id: 'models', label: 'Models' },
+    { id: 'library', label: 'Library' },
     { id: 'settings', label: 'Settings' }
+  ];
+  readonly librarySubTabs: { id: LibrarySubTab; label: string }[] = [
+    { id: 'templates', label: 'Templates' },
+    { id: 'files', label: 'Files' },
+    { id: 'outputs', label: 'Outputs' }
   ];
   readonly modes = modes;
   readonly categories = categories;
   readonly templates = signal<TaskTemplate[]>(this.loadTemplateOrder());
   readonly selectedCategory = signal<TemplateCategory>('all');
 
-  readonly activeTab = signal<Tab>('chat');
+  readonly activeTab = signal<Tab>('home');
+  readonly activeLibrarySubTab = signal<LibrarySubTab>('templates');
   readonly settings = signal<Settings | null>(null);
   readonly models = signal<string[]>([]);
   readonly modelSource = signal<'fallback' | 'openai'>('fallback');
@@ -209,11 +261,14 @@ export class AppComponent implements OnInit {
   readonly activeProjectId = signal<string | null>(null);
   readonly busy = signal(false);
   readonly status = signal('Loading harness');
+  readonly toasts = signal<Toast[]>([]);
   readonly draft = signal('');
   readonly selectedMode = signal<HarnessMode>('chat');
   readonly selectedModel = signal('');
   readonly selectedFileIds = signal<string[]>([]);
   readonly apiKeyDraft = signal('');
+  readonly githubUrlDraft = signal('');
+  readonly bitbucketUrlDraft = signal('');
   readonly previewArtifact = signal<HarnessArtifact | null>(null);
   readonly activeTemplate = signal<TaskTemplate>(templates[0]);
   readonly activeTemplateId = signal<string | null>(null); // Track active template for filtering
@@ -221,10 +276,22 @@ export class AppComponent implements OnInit {
   readonly streamingContent = signal('');
   readonly isStreaming = signal(false);
   readonly activeWorkflowStep = signal<'frame' | 'context' | 'output'>('frame');
+  
+  // Project title editing
+  readonly isEditingProjectTitle = signal(false);
+  readonly editingProjectTitle = signal('');
 
   readonly activeConversation = computed(() => {
     const id = this.activeConversationId();
-    return this.conversations().find((conversation) => conversation.id === id) || null;
+    const projectId = this.activeProjectId();
+    const conversation = this.conversations().find((conversation) => conversation.id === id) || null;
+    
+    // If we're in a project, only show conversations that belong to this project
+    if (projectId && conversation) {
+      return conversation.projectId === projectId ? conversation : null;
+    }
+    
+    return conversation;
   });
 
   readonly activeProject = computed(() => {
@@ -239,6 +306,11 @@ export class AppComponent implements OnInit {
       return this.conversations().filter((c) => !c.projectId); // Show non-project conversations
     }
     return this.conversations().filter((c) => c.projectId === projectId);
+  });
+
+  // Filter conversations for the sidebar (only show non-project conversations)
+  readonly sidebarConversations = computed(() => {
+    return this.conversations().filter((c) => !c.projectId);
   });
 
   // Filter files for the active project
@@ -303,6 +375,42 @@ export class AppComponent implements OnInit {
   async ngOnInit() {
     await this.refreshAll();
     this.setupKeyboardShortcuts();
+    this.loadRepositoryUrls();
+  }
+
+  // Toast notification methods
+  private showToast(message: string, type: ToastType = 'success') {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    const dismissible = type !== 'loading';
+    
+    const toast: Toast = { id, message, type, dismissible };
+    this.toasts.update(toasts => [...toasts, toast]);
+    
+    // Auto-dismiss success toasts after 3 seconds
+    if (type === 'success') {
+      setTimeout(() => this.dismissToast(id), 3000);
+    }
+  }
+
+  private dismissToast(id: string) {
+    this.toasts.update(toasts => toasts.filter(t => t.id !== id));
+  }
+
+  private dismissAllLoadingToasts() {
+    this.toasts.update(toasts => toasts.filter(t => t.type !== 'loading'));
+  }
+
+  // Load repository URLs from localStorage
+  private loadRepositoryUrls() {
+    const githubUrl = localStorage.getItem('githubUrl');
+    const bitbucketUrl = localStorage.getItem('bitbucketUrl');
+    
+    if (githubUrl) {
+      this.githubUrlDraft.set(githubUrl);
+    }
+    if (bitbucketUrl) {
+      this.bitbucketUrlDraft.set(bitbucketUrl);
+    }
   }
 
   // Load template order from localStorage, fallback to default templates
@@ -353,7 +461,7 @@ export class AppComponent implements OnInit {
         const textarea = document.querySelector('.composer textarea') as HTMLTextAreaElement;
         if (textarea) {
           textarea.focus();
-          this.activeTab.set('chat');
+          this.activeTab.set('projects');
         }
       }
 
@@ -372,7 +480,7 @@ export class AppComponent implements OnInit {
       }
 
       // Escape: Clear draft
-      if (e.key === 'Escape' && this.activeTab() === 'chat') {
+      if (e.key === 'Escape' && this.activeTab() === 'projects') {
         this.draft.set('');
       }
     });
@@ -407,9 +515,9 @@ export class AppComponent implements OnInit {
         this.selectedModel.set(conversations[0].model);
       }
 
-      this.status.set(settings.hasOpenAiKey ? 'OpenAI key configured' : 'No OpenAI key configured');
+      this.showToast(settings.hasOpenAiKey ? 'OpenAI key configured' : 'No OpenAI key configured', 'success');
     } catch (error) {
-      this.status.set(error instanceof Error ? error.message : 'Failed to load harness');
+      this.showToast(error instanceof Error ? error.message : 'Failed to load harness', 'error');
     } finally {
       this.busy.set(false);
     }
@@ -441,10 +549,24 @@ export class AppComponent implements OnInit {
       });
       this.settings.set(settings);
       this.selectedModel.set(defaultModel);
-      this.status.set('Settings saved');
+      
+      // Save repository URLs to localStorage
+      if (this.githubUrlDraft()) {
+        localStorage.setItem('githubUrl', this.githubUrlDraft());
+      } else {
+        localStorage.removeItem('githubUrl');
+      }
+      
+      if (this.bitbucketUrlDraft()) {
+        localStorage.setItem('bitbucketUrl', this.bitbucketUrlDraft());
+      } else {
+        localStorage.removeItem('bitbucketUrl');
+      }
+      
+      this.showToast('Settings saved', 'success');
       await this.refreshModels();
     } catch (error) {
-      this.status.set(error instanceof Error ? error.message : 'Could not save settings');
+      this.showToast(error instanceof Error ? error.message : 'Could not save settings', 'error');
     } finally {
       this.busy.set(false);
     }
@@ -479,13 +601,55 @@ export class AppComponent implements OnInit {
       );
     }
     
-    this.activeTab.set('chat');
+    this.activeTab.set('projects');
+  }
+
+  async createStandaloneConversation() {
+    const model = this.selectedModel() || this.settings()?.defaultModel || 'gpt-5.2';
+    
+    const conversation = await this.api.createConversation({
+      title: `${this.selectedMode()} session`,
+      model,
+      mode: this.selectedMode(),
+      projectId: undefined
+    });
+
+    this.conversations.update((items) => [conversation, ...items]);
+    this.activeConversationId.set(conversation.id);
+    
+    // Clear project context since this is a standalone conversation
+    this.activeProjectId.set(null);
+    this.selectedFileIds.set([]);
+    this.activeTab.set('home');
   }
 
   selectConversation(conversation: HarnessConversation) {
-    this.activeConversationId.set(conversation.id);
-    this.selectedMode.set(conversation.mode);
-    this.selectedModel.set(conversation.model);
+    const projectId = this.activeProjectId();
+    
+    // If this is a project conversation being selected within a project context
+    if (projectId && conversation.projectId === projectId) {
+      this.activeConversationId.set(conversation.id);
+      this.selectedMode.set(conversation.mode);
+      this.selectedModel.set(conversation.model);
+      return;
+    }
+    
+    // If this is a non-project conversation, clear project context
+    if (!conversation.projectId) {
+      this.activeProjectId.set(null);
+      this.selectedFileIds.set([]);
+      this.activeConversationId.set(conversation.id);
+      this.selectedMode.set(conversation.mode);
+      this.selectedModel.set(conversation.model);
+      this.activeTab.set('home');
+      return;
+    }
+    
+    // If trying to select a conversation from a different project, prevent it
+    if (projectId && conversation.projectId !== projectId) {
+      console.warn('Cannot select a conversation from a different project');
+      return;
+    }
   }
 
   async deleteConversation(conversationId: string, event?: Event) {
@@ -521,7 +685,7 @@ export class AppComponent implements OnInit {
       // Remove from selected files if it was selected
       this.selectedFileIds.update((ids) => ids.filter((id) => id !== fileId));
       
-      this.status.set('File deleted');
+      this.showToast('File deleted', 'success');
     } catch (error) {
       console.error('Failed to delete file:', error);
       alert('Failed to delete file. Please try again.');
@@ -553,7 +717,7 @@ export class AppComponent implements OnInit {
       // Refresh conversations and artifacts to reflect deletions
       await this.refreshAll();
       
-      this.status.set('Project deleted');
+      this.showToast('Project deleted', 'success');
     } catch (error) {
       console.error('Failed to delete project:', error);
       alert('Failed to delete project. Please try again.');
@@ -583,7 +747,7 @@ export class AppComponent implements OnInit {
         projects.map((p) => (p.id === projectId ? updatedProject : p))
       );
       
-      this.status.set('Project renamed');
+      this.showToast('Project renamed', 'success');
     } catch (error) {
       console.error('Failed to rename project:', error);
       alert('Failed to rename project. Please try again.');
@@ -594,14 +758,28 @@ export class AppComponent implements OnInit {
     this.activeProjectId.set(project.id);
     this.activeTemplateId.set(project.templateId);
     
+    // Load project's attached files into selectedFileIds
+    this.selectedFileIds.set(project.fileIds);
+    
     // Find the template for this project
     const template = this.templates().find(t => t.id === project.templateId);
     if (template) {
       this.activeTemplate.set(template);
       this.selectedMode.set(project.mode);
+      
+      // Reconstruct workflowBlocks from template structure with saved values
+      this.workflowBlocks.set(
+        template.blocks.map((block) => ({
+          ...block,
+          value: project.blocks[block.id] || '',
+          checked: typeof project.blocks[block.id] === 'boolean' 
+            ? project.blocks[block.id] 
+            : (block.checked ?? false)
+        }))
+      );
     }
     
-    // Load project's first conversation or create new one
+    // Load project's first conversation or clear selection
     const projectConvs = this.conversations().filter(c => c.projectId === project.id);
     if (projectConvs.length > 0) {
       this.activeConversationId.set(projectConvs[0].id);
@@ -609,8 +787,65 @@ export class AppComponent implements OnInit {
       this.activeConversationId.set(null);
     }
     
-    // Switch to templates tab to show the project workspace
-    this.activeTab.set('templates');
+    // Switch to projects tab to show the project workspace
+    this.activeTab.set('projects');
+  }
+
+  startEditingProjectTitle() {
+    const project = this.activeProject();
+    if (!project) return;
+    
+    this.editingProjectTitle.set(project.title);
+    this.isEditingProjectTitle.set(true);
+    
+    // Focus the input after Angular renders it
+    setTimeout(() => {
+      const input = document.querySelector('.project-title-input') as HTMLInputElement;
+      if (input) {
+        input.focus();
+        input.select();
+      }
+    }, 0);
+  }
+
+  async saveProjectTitle() {
+    if (!this.isEditingProjectTitle()) return;
+    
+    const projectId = this.activeProjectId();
+    const newTitle = this.editingProjectTitle().trim();
+    
+    if (!projectId || !newTitle) {
+      this.cancelEditProjectTitle();
+      return;
+    }
+    
+    try {
+      const updatedProject = await this.api.updateProject(projectId, { title: newTitle });
+      this.projects.update(projects => 
+        projects.map(p => p.id === projectId ? updatedProject : p)
+      );
+      this.isEditingProjectTitle.set(false);
+      this.showToast('Project name updated', 'success');
+    } catch (error) {
+      console.error('Failed to update project title:', error);
+      alert('Failed to update project name. Please try again.');
+      this.cancelEditProjectTitle();
+    }
+  }
+
+  cancelEditProjectTitle() {
+    this.isEditingProjectTitle.set(false);
+    this.editingProjectTitle.set('');
+  }
+
+  switchTab(tabId: Tab) {
+    // When leaving Projects tab, clear project context to prevent file/data bleeding
+    if (this.activeTab() === 'projects' && tabId !== 'projects') {
+      this.activeProjectId.set(null);
+      this.selectedFileIds.set([]);
+    }
+    
+    this.activeTab.set(tabId);
   }
 
   async selectTemplate(template: TaskTemplate) {
@@ -620,25 +855,44 @@ export class AppComponent implements OnInit {
     this.selectedMode.set(template.mode);
     this.activeWorkflowStep.set('frame'); // Reset to first step
     
-    // Create a new project for this template instance
+    // Clear file selections - templates are read-only previews
+    // Files can only be attached within project context
+    this.selectedFileIds.set([]);
+    
+    // Just preview the template - don't create project yet
+    // Project will be created when user clicks "Create Project" button
+  }
+
+  async createProjectFromTemplate() {
+    const template = this.activeTemplate();
+    if (!template) return;
+    
     try {
+      // Start with empty blocks - templates are read-only, no pre-filled values
       const blocks: Record<string, any> = {};
-      const currentBlocks = this.workflowBlocks();
-      currentBlocks.forEach(block => {
-        blocks[block.id] = '';
+      template.blocks.forEach(block => {
+        if (block.type === 'checkbox') {
+          blocks[block.id] = block.checked ?? false;
+        } else {
+          blocks[block.id] = '';
+        }
       });
       
+      // Create project with empty fields and no files (start fresh)
       const project = await this.api.createProject({
         templateId: template.id,
         title: `${template.label} - ${new Date().toLocaleString()}`,
         mode: template.mode,
         blocks,
-        fileIds: this.selectedFileIds()
+        fileIds: [] // Start with no files
       });
       
       this.projects.update((projects) => [project, ...projects]);
-      this.activeProjectId.set(project.id);
-      this.status.set(`Project "${template.label}" created`);
+      
+      // Open the project in Projects tab
+      this.selectProject(project);
+      
+      this.showToast(`Project "${template.label}" created`, 'success');
     } catch (error) {
       console.error('Failed to create project:', error);
       alert('Failed to create project. Please try again.');
@@ -660,6 +914,64 @@ export class AppComponent implements OnInit {
   // TrackBy function to prevent input recreation
   trackByBlockId(index: number, block: WorkflowBlock): string {
     return block.id;
+  }
+
+  // Update a text or select block value
+  updateBlockValue(blockId: string, value: string) {
+    this.workflowBlocks.update(blocks =>
+      blocks.map(block =>
+        block.id === blockId ? { ...block, value } : block
+      )
+    );
+    this.saveProjectBlocksDebounced();
+  }
+
+  // Update a checkbox block value
+  updateCheckboxValue(blockId: string, checked: boolean) {
+    this.workflowBlocks.update(blocks =>
+      blocks.map(block =>
+        block.id === blockId ? { ...block, checked } : block
+      )
+    );
+    this.saveProjectBlocksDebounced();
+  }
+
+  // Debounced save to avoid excessive API calls
+  private saveTimeout?: number;
+  private filesSaveTimeout?: number;
+  
+  private saveProjectBlocksDebounced() {
+    if (this.saveTimeout) {
+      clearTimeout(this.saveTimeout);
+    }
+    this.saveTimeout = window.setTimeout(() => {
+      this.saveProjectBlocks();
+    }, 1000); // Save 1 second after user stops typing
+  }
+
+  // Save current workflow blocks to the active project
+  private async saveProjectBlocks() {
+    const projectId = this.activeProjectId();
+    if (!projectId) {
+      // No project yet - user is just previewing template in Library
+      // Don't save anything
+      return;
+    }
+
+    const blocks: Record<string, any> = {};
+    this.workflowBlocks().forEach(block => {
+      if (block.type === 'checkbox') {
+        blocks[block.id] = block.checked;
+      } else {
+        blocks[block.id] = block.value;
+      }
+    });
+
+    try {
+      await this.api.updateProject(projectId, { blocks });
+    } catch (error) {
+      console.error('Failed to save project blocks:', error);
+    }
   }
 
   // Navigate to workflow step and scroll to section
@@ -690,7 +1002,7 @@ export class AppComponent implements OnInit {
     this.draft.set('');
     this.streamingContent.set('');
     this.isStreaming.set(false);
-    this.status.set('Conversation cleared');
+    this.showToast('Conversation cleared', 'success');
   }
 
   async launchWorkflow() {
@@ -769,11 +1081,44 @@ export class AppComponent implements OnInit {
   useTemplateOnly(template: TaskTemplate) {
     this.selectedMode.set(template.mode);
     this.draft.set(`Run the "${template.label}" workflow.\n\nDesired output: ${template.output}.\n\nAsk me for any missing details before producing the final result.`);
-    this.activeTab.set('chat');
+    this.activeTab.set('projects');
   }
 
   toggleFile(fileId: string) {
     this.selectedFileIds.update((ids) => (ids.includes(fileId) ? ids.filter((id) => id !== fileId) : [...ids, fileId]));
+    
+    // Save fileIds to project if we're in a project context
+    this.saveProjectFilesDebounced();
+  }
+
+  private saveProjectFilesDebounced() {
+    if (this.filesSaveTimeout) {
+      clearTimeout(this.filesSaveTimeout);
+    }
+    this.filesSaveTimeout = window.setTimeout(() => {
+      this.saveProjectFiles();
+    }, 500); // Save 500ms after user stops selecting files
+  }
+
+  private async saveProjectFiles() {
+    const projectId = this.activeProjectId();
+    if (!projectId) {
+      // No project yet - user is just previewing template in Library
+      return;
+    }
+
+    try {
+      await this.api.updateProject(projectId, { fileIds: this.selectedFileIds() });
+      
+      // Update local project state
+      this.projects.update((projects) =>
+        projects.map((p) =>
+          p.id === projectId ? { ...p, fileIds: this.selectedFileIds() } : p
+        )
+      );
+    } catch (error) {
+      console.error('Failed to save project files:', error);
+    }
   }
 
   onTextareaKeydown(event: KeyboardEvent) {
@@ -790,8 +1135,8 @@ export class AppComponent implements OnInit {
 
   copyMessage(content: string) {
     navigator.clipboard.writeText(content).then(
-      () => this.status.set('Copied to clipboard'),
-      () => this.status.set('Failed to copy')
+      () => this.showToast('Copied to clipboard', 'success'),
+      () => this.showToast('Failed to copy', 'error')
     );
   }
 
@@ -819,14 +1164,15 @@ export class AppComponent implements OnInit {
     a.download = `${conv.title.replace(/\s+/g, '-')}.md`;
     a.click();
     URL.revokeObjectURL(url);
-    this.status.set('Conversation exported');
+    this.showToast('Conversation exported', 'success');
   }
 
   scrollToBottom() {
     setTimeout(() => {
-      // Scroll both chat messages and template messages
+      // Scroll all message containers
       const messages = document.querySelector('.messages');
       const templateMessages = document.querySelector('.template-messages');
+      const projectMessages = document.querySelector('.project-messages');
       
       if (messages) {
         messages.scrollTop = messages.scrollHeight;
@@ -834,6 +1180,15 @@ export class AppComponent implements OnInit {
       
       if (templateMessages) {
         templateMessages.scrollTop = templateMessages.scrollHeight;
+      }
+      
+      if (projectMessages) {
+        projectMessages.scrollTop = projectMessages.scrollHeight;
+        // Also scroll the conversation into view
+        const conversationSection = document.querySelector('.project-conversation');
+        if (conversationSection) {
+          conversationSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
       }
     }, 100);
   }
@@ -894,9 +1249,9 @@ export class AppComponent implements OnInit {
       this.isStreaming.set(false);
       this.streamingContent.set('');
       this.scrollToBottom();
-      this.status.set('Response complete');
+      this.dismissAllLoadingToasts();
     } catch (error) {
-      this.status.set(error instanceof Error ? error.message : 'Message failed');
+      this.showToast(error instanceof Error ? error.message : 'Message failed', 'error');
     } finally {
       this.busy.set(false);
     }
@@ -913,9 +1268,9 @@ export class AppComponent implements OnInit {
     try {
       this.files.set(await this.api.uploadFiles(input.files));
       input.value = '';
-      this.status.set('Files uploaded');
+      this.showToast('Files uploaded', 'success');
     } catch (error) {
-      this.status.set(error instanceof Error ? error.message : 'Upload failed');
+      this.showToast(error instanceof Error ? error.message : 'Upload failed', 'error');
     } finally {
       this.busy.set(false);
     }

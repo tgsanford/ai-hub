@@ -63,7 +63,7 @@ export class ApiService {
     return firstValueFrom(this.http.post<HarnessProject>(`${apiBase}/projects`, payload));
   }
 
-  updateProject(projectId: string, payload: { title: string }) {
+  updateProject(projectId: string, payload: { title?: string; blocks?: Record<string, any>; fileIds?: string[] }) {
     return firstValueFrom(this.http.put<HarnessProject>(`${apiBase}/projects/${projectId}`, payload));
   }
 

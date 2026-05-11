@@ -416,7 +416,9 @@ app.get('/api/projects/:id', async (req, res, next) => {
 
 app.put('/api/projects/:id', async (req, res, next) => {
   const schema = z.object({
-    title: z.string().trim().min(1)
+    title: z.string().trim().min(1).optional(),
+    blocks: z.record(z.any()).optional(),
+    fileIds: z.array(z.string()).optional()
   });
 
   try {
@@ -427,7 +429,15 @@ app.put('/api/projects/:id', async (req, res, next) => {
     const store = await updateStore((draft) => {
       const project = draft.projects.find((item) => item.id === projectId);
       if (project) {
-        project.title = input.title;
+        if (input.title !== undefined) {
+          project.title = input.title;
+        }
+        if (input.blocks !== undefined) {
+          project.blocks = input.blocks;
+        }
+        if (input.fileIds !== undefined) {
+          project.fileIds = input.fileIds;
+        }
         project.updatedAt = now;
       }
     });

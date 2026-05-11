@@ -13,32 +13,145 @@
         *ngFor="let tab of tabs"
         type="button"
         [class.active]="activeTab() === tab.id"
-        (click)="activeTab.set(tab.id)"
+        (click)="switchTab(tab.id)"
       >
         {{ tab.label }}
       </button>
     </nav>
 
-    <section class="conversation-list">
+    <!-- CONTEXTUAL SIDEBAR CONTENT -->
+    
+    <!-- HOME: Recent Activity -->
+    <section *ngIf="activeTab() === 'home'" class="sidebar-section">
       <div class="panel-heading">
-        <span>Conversations</span>
-        <button class="icon-button" type="button" title="New conversation" (click)="createConversation()">+</button>
+        <span>Recent Activity</span>
+      </div>
+
+      <div *ngIf="projects().length" class="sidebar-subsection">
+        <h4>Recent Projects</h4>
+        <button
+          *ngFor="let project of projects().slice(0, 3)"
+          type="button"
+          class="sidebar-item"
+          (click)="selectProject(project)"
+        >
+          <div class="sidebar-item-content">
+            <strong>{{ project.title }}</strong>
+            <span>{{ project.mode }}</span>
+          </div>
+        </button>
+      </div>
+
+      <div *ngIf="sidebarConversations().length" class="sidebar-subsection">
+        <h4>Recent Conversations</h4>
+        <button
+          *ngFor="let conversation of sidebarConversations().slice(0, 3)"
+          type="button"
+          class="sidebar-item"
+          [class.active]="activeConversationId() === conversation.id"
+          (click)="selectConversation(conversation)"
+        >
+          <div class="sidebar-item-content">
+            <strong>{{ conversation.title }}</strong>
+            <span>{{ conversation.mode }}</span>
+          </div>
+        </button>
+      </div>
+
+      <p *ngIf="!projects().length && !sidebarConversations().length" class="empty">No recent activity yet.</p>
+    </section>
+
+    <!-- PROJECTS: Project List -->
+    <section *ngIf="activeTab() === 'projects'" class="sidebar-section">
+      <div class="panel-heading">
+        <span>All Projects</span>
+        <button class="icon-button" type="button" title="Browse templates" (click)="switchTab('library'); activeLibrarySubTab.set('templates')">+</button>
       </div>
 
       <button
-        *ngFor="let conversation of conversations()"
+        *ngFor="let project of projects()"
         type="button"
-        class="conversation-item"
+        class="sidebar-item"
+        [class.active]="activeProjectId() === project.id"
+        (click)="selectProject(project)"
+      >
+        <div class="sidebar-item-content">
+          <strong>{{ project.title }}</strong>
+          <span>{{ project.mode }} · {{ project.conversationIds.length }} chats</span>
+        </div>
+      </button>
+
+      <p *ngIf="!projects().length" class="empty">
+        No projects yet.<br>
+        <a class="empty-link" (click)="switchTab('library'); activeLibrarySubTab.set('templates')">Browse templates</a> to get started.
+      </p>
+    </section>
+
+    <!-- LIBRARY: Quick Stats -->
+    <section *ngIf="activeTab() === 'library'" class="sidebar-section">
+      <div class="panel-heading">
+        <span>Library Stats</span>
+      </div>
+
+      <div class="sidebar-stats">
+        <div class="stat-item">
+          <span class="stat-icon">📋</span>
+          <div>
+            <strong>{{ templates().length }}</strong>
+            <span>Templates</span>
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">📎</span>
+          <div>
+            <strong>{{ files().length }}</strong>
+            <span>Files</span>
+          </div>
+        </div>
+        <div class="stat-item">
+          <span class="stat-icon">✨</span>
+          <div>
+            <strong>{{ artifacts().length }}</strong>
+            <span>Outputs</span>
+          </div>
+        </div>
+      </div>
+
+      <div *ngIf="activeLibrarySubTab() === 'templates' && categories.length" class="sidebar-subsection">
+        <h4>Categories</h4>
+        <button
+          *ngFor="let category of categories"
+          type="button"
+          class="category-sidebar-btn"
+          [class.active]="selectedCategory() === category.id"
+          (click)="selectedCategory.set(category.id)"
+        >
+          {{ category.label }}
+        </button>
+      </div>
+    </section>
+
+    <!-- SETTINGS: Keep conversations (or could be empty) -->
+    <section *ngIf="activeTab() === 'settings'" class="sidebar-section">
+      <div class="panel-heading">
+        <span>Conversations</span>
+        <button class="icon-button" type="button" title="New conversation" (click)="createStandaloneConversation()">+</button>
+      </div>
+
+      <button
+        *ngFor="let conversation of sidebarConversations()"
+        type="button"
+        class="sidebar-item"
         [class.active]="activeConversationId() === conversation.id"
         (click)="selectConversation(conversation)"
       >
-        <div class="conversation-content">
+        <div class="sidebar-item-content">
           <strong>{{ conversation.title }}</strong>
-          <span>{{ conversation.mode }} · {{ conversation.model }}</span>
+          <span>{{ conversation.mode }}</span>
         </div>
         <button
           type="button"
-          class="delete-conversation-btn"
+          class="delete-btn"
           title="Delete conversation"
           (click)="deleteConversation(conversation.id, $event)"
         >
@@ -48,28 +161,96 @@
         </button>
       </button>
 
-      <p *ngIf="!conversations().length" class="empty">No sessions yet.</p>
+      <p *ngIf="!sidebarConversations().length" class="empty">No sessions yet.</p>
     </section>
   </aside>
 
   <section class="workspace">
     <header class="topbar">
-      <div class="control-grid">
-        <label class="field">
-          <span>Model</span>
-          <select [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
-            <option *ngFor="let model of models()" [value]="model">{{ model }}</option>
-          </select>
-        </label>
+      <div class="topbar-title">
+        <h2 *ngIf="activeTab() === 'home'">Welcome to AI Hub</h2>
+        <h2 *ngIf="activeTab() === 'projects'">Projects</h2>
+        <h2 *ngIf="activeTab() === 'library'">Library</h2>
+        <h2 *ngIf="activeTab() === 'settings'">Settings</h2>
       </div>
 
-      <div class="status">
-        <span [class.ready]="settings()?.hasOpenAiKey">{{ status() }}</span>
+      <div class="topbar-actions">
         <button class="secondary-button" type="button" (click)="refreshAll()" [disabled]="busy()">Refresh</button>
       </div>
     </header>
 
     <section class="content" [ngSwitch]="activeTab()">
+      <!-- HOME DASHBOARD -->
+      <section *ngSwitchCase="'home'" class="home-pane">
+        <div class="welcome-banner">
+          <div class="welcome-icon">✨</div>
+          <h1>Welcome to AI Hub</h1>
+          <p>Your workspace for AI-powered projects, templates, and conversations</p>
+        </div>
+
+        <div class="quick-actions-section">
+          <h2>Quick Actions</h2>
+          <div class="action-cards">
+            <button type="button" class="action-card" (click)="switchTab('library'); activeLibrarySubTab.set('templates')">
+              <div class="action-icon">📋</div>
+              <strong>Browse Templates</strong>
+              <span>Use pre-built workflows</span>
+            </button>
+            <button type="button" class="action-card" (click)="switchTab('projects')">
+              <div class="action-icon">🚀</div>
+              <strong>View Projects</strong>
+              <span>See all your work</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="recent-section" *ngIf="projects().length">
+          <h2>Recent Projects</h2>
+          <div class="recent-projects">
+            <button 
+              *ngFor="let project of projects().slice(0, 5)" 
+              type="button" 
+              class="recent-project-card"
+              (click)="selectProject(project)"
+            >
+              <strong>{{ project.title }}</strong>
+              <span>{{ project.mode }} · {{ formatTime(project.createdAt) }}</span>
+              <div class="project-quick-stats">
+                <span>💬 {{ project.conversationIds.length }}</span>
+                <span>📄 {{ project.fileIds.length }}</span>
+                <span>✨ {{ project.artifactIds.length }}</span>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div class="recent-section" *ngIf="sidebarConversations().length">
+          <h2>Recent Conversations</h2>
+          <div class="recent-conversations">
+            <button 
+              *ngFor="let conversation of sidebarConversations().slice(0, 5)" 
+              type="button" 
+              class="recent-conversation-card"
+              (click)="selectConversation(conversation)"
+            >
+              <strong>{{ conversation.title }}</strong>
+              <span>{{ conversation.mode }} · {{ conversation.model }}</span>
+              <span class="message-count">{{ conversation.messages.length }} messages</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="empty-state" *ngIf="!projects().length && !sidebarConversations().length">
+          <div class="empty-icon">🎯</div>
+          <h3>Ready to Get Started?</h3>
+          <p>Create your first project or start a conversation to begin working with AI</p>
+          <button class="primary-button" type="button" (click)="switchTab('library'); activeLibrarySubTab.set('templates')">
+            Browse Templates
+          </button>
+        </div>
+      </section>
+
+      <!-- CHAT/CONVERSATION VIEW (accessed from Projects) -->
       <section *ngSwitchCase="'chat'" class="chat-pane">
         <div class="chat-header" *ngIf="activeConversation()">
           <div class="chat-info">
@@ -182,446 +363,692 @@
         </form>
       </section>
 
-      <section *ngSwitchCase="'projects'" class="tool-pane">
-        <header>
-          <h1>Projects</h1>
-          <span>{{ projects().length }} active</span>
-        </header>
-
-        <div class="projects-grid">
-          <div *ngFor="let project of projects()" class="project-card">
-            <div class="project-header">
-              <div class="project-info" (click)="selectProject(project)">
-                <strong>{{ project.title }}</strong>
-                <span class="project-meta">{{ project.mode }} · Created {{ formatTime(project.createdAt) }}</span>
-              </div>
-              <div class="project-actions">
-                <button
-                  type="button"
-                  class="edit-btn"
-                  title="Rename project"
-                  (click)="renameProject(project.id, $event)"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                  </svg>
-                </button>
-                <button
-                  type="button"
-                  class="delete-btn"
-                  title="Delete project"
-                  (click)="deleteProject(project.id, $event)"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="project-stats">
-              <div class="stat">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M2.5 1A1.5 1.5 0 0 0 1 2.5v11A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11zm5 2.5c0-.276.224-.5.5-.5h1c.276 0 .5.224.5.5v1c0 .276-.224.5-.5.5H8a.5.5 0 0 1-.5-.5v-1z"/>
-                </svg>
-                <span>{{ project.conversationIds.length }} conversations</span>
-              </div>
-              <div class="stat">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
-                </svg>
-                <span>{{ project.fileIds.length }} files</span>
-              </div>
-              <div class="stat">
-                <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                  <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
-                  <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
-                </svg>
-                <span>{{ project.artifactIds.length }} outputs</span>
-              </div>
-            </div>
-            <button 
-              type="button" 
-              class="open-project-btn"
-              (click)="selectProject(project)"
-            >
-              Open Project
-            </button>
-          </div>
-        </div>
-
-        <p *ngIf="!projects().length" class="empty">No projects yet. Create one from a template!</p>
-      </section>
-
-      <section *ngSwitchCase="'templates'" class="templates-pane">
-        <section class="template-catalog">
+      <section *ngSwitchCase="'projects'">
+        <!-- PROJECT LIST VIEW (when no project selected) -->
+        <div *ngIf="!activeProjectId()" class="tool-pane">
           <header>
-            <h1>Templates\Task</h1>
-            <span>{{ filteredTemplates().length }} of {{ templates().length }} workflows</span>
+            <h1>Projects</h1>
+            <span>{{ projects().length }} active</span>
           </header>
 
-          <!-- Category Filter Buttons -->
-          <div class="category-filters">
-            <button
-              *ngFor="let category of categories"
-              type="button"
-              class="category-btn"
-              [class.active]="selectedCategory() === category.id"
-              [title]="category.description"
-              (click)="selectedCategory.set(category.id)"
-            >
-              {{ category.label }}
-            </button>
-          </div>
-
-          <div cdkDropList (cdkDropListDropped)="reorderTemplates($event)">
-            <button
-              *ngFor="let template of filteredTemplates()"
-              type="button"
-              class="workflow-card"
-              cdkDrag
-              [class.active]="activeTemplate().id === template.id"
-              (click)="selectTemplate(template)"
-            >
-              <svg class="drag-handle" cdkDragHandle width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
-              </svg>
-              <div class="workflow-card-content">
-                <strong>{{ template.label }}</strong>
-                <span>{{ template.tagline }}</span>
-                <small>{{ template.mode }} · {{ template.output }}</small>
-              </div>
-            </button>
-          </div>
-        </section>
-
-        <section class="workflow-builder">
-          <header>
-            <div>
-              <h1>{{ activeTemplate().label }}</h1>
-              <p>{{ activeTemplate().tagline }}</p>
-            </div>
-            <button class="primary-button" type="button" (click)="launchWorkflow()">Launch</button>
-          </header>
-
-          <div class="workflow-strip">
-            <button 
-              type="button" 
-              class="workflow-step" 
-              [class.active]="activeWorkflowStep() === 'frame'"
-              (click)="goToWorkflowStep('frame')"
-            >
-              Frame
-            </button>
-            <button 
-              type="button" 
-              class="workflow-step" 
-              [class.active]="activeWorkflowStep() === 'context'"
-              (click)="goToWorkflowStep('context')"
-            >
-              Context
-            </button>
-            <button 
-              type="button" 
-              class="workflow-step" 
-              [class.active]="activeWorkflowStep() === 'output'"
-              (click)="goToWorkflowStep('output')"
-            >
-              Output
-            </button>
-          </div>
-
-          <div class="workflow-context">
-            <div>
-              <span>AI mode</span>
-              <strong>{{ activeTemplate().mode }}</strong>
-            </div>
-            <div>
-              <span>Target output</span>
-              <strong>{{ activeTemplate().output }}</strong>
-            </div>
-            <div>
-              <span>Files</span>
-              <strong>{{ selectedFileLabel() }}</strong>
-            </div>
-          </div>
-
-          <div class="block-grid">
-            <label *ngFor="let block of workflowBlocks(); trackBy: trackByBlockId" class="field workflow-block" [class.checkbox-field]="block.type === 'checkbox'">
-              <span>{{ block.label }}</span>
-              <select 
-                *ngIf="block.type === 'select' || (block.options && block.type !== 'checkbox')"
-                [ngModel]="block.value"
-                (ngModelChange)="updateBlock(block.id, $event)"
-              >
-                <option value="">{{ block.placeholder }}</option>
-                <option *ngFor="let option of block.options" [value]="option">{{ option }}</option>
-              </select>
-              <div *ngIf="block.type === 'checkbox'" class="checkbox-wrapper">
-                <input 
-                  type="checkbox"
-                  [id]="'checkbox-' + block.id"
-                  [checked]="block.checked"
-                  (change)="toggleCheckbox(block.id)"
-                />
-                <label [for]="'checkbox-' + block.id" class="checkbox-label">
-                  {{ block.label }}
-                </label>
-              </div>
-              <textarea
-                *ngIf="(!block.options && block.type !== 'checkbox' && block.type !== 'select') || block.type === 'text'"
-                [ngModel]="block.value"
-                (ngModelChange)="updateBlock(block.id, $event)"
-                [placeholder]="block.placeholder"
-              ></textarea>
-            </label>
-          </div>
-
-          <section class="file-picker">
-            <header>
-              <h2>Attach Context</h2>
-              <div class="file-picker-controls">
-                <span>{{ selectedFileLabel() }}</span>
-                <label class="upload-button-small">
-                  <input type="file" multiple (change)="upload($event)">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
-                  </svg>
-                  Upload
-                </label>
-              </div>
-            </header>
-            <div class="file-chip-grid" *ngIf="files().length; else noTemplateFiles">
-              <button
-                *ngFor="let file of files()"
-                type="button"
-                [class.active]="selectedFileIds().includes(file.id)"
-                (click)="toggleFile(file.id)"
-              >
-                {{ file.originalName }}
-              </button>
-            </div>
-            <ng-template #noTemplateFiles>
-              <p class="empty">Upload files to use them as workflow context.</p>
-            </ng-template>
-          </section>
-
-          <footer class="workflow-actions">
-            <button class="secondary-button" type="button" (click)="useTemplateOnly(activeTemplate())">Ask for details</button>
-            <button class="primary-button" type="button" (click)="launchWorkflow()">Build prompt</button>
-          </footer>
-
-          <!-- Template Conversation Area -->
-          <section class="template-conversation" *ngIf="activeTemplateId()">
-            <header class="conversation-header">
-              <h2>Conversation</h2>
-              <div class="conversation-actions">
-                <span class="meta">{{ templateMessages().length }} messages</span>
-                <button class="icon-button" type="button" title="Start new conversation" (click)="clearTemplateConversation()">
-                  <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z"/>
-                  </svg>
-                </button>
-              </div>
-            </header>
-
-            <div class="messages template-messages" #templateMessagesContainer aria-live="polite">
-              <article *ngFor="let message of templateMessages(); let i = index" 
-                       class="message" 
-                       [class.user]="message.role === 'user'"
-                       [class.assistant]="message.role === 'assistant'">
-                <div class="message-header">
-                  <div class="message-meta">
-                    <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}</strong>
-                    <span class="mode-badge">{{ message.mode }}</span>
-                    <span class="timestamp">{{ formatTime(message.createdAt) }}</span>
-                  </div>
-                  <button class="copy-btn" type="button" title="Copy message" (click)="copyMessage(message.content)">
-                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
-                      <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
-                      <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+          <div class="projects-grid">
+            <div *ngFor="let project of projects()" class="project-card">
+              <div class="project-header">
+                <div class="project-info" (click)="selectProject(project)">
+                  <strong>{{ project.title }}</strong>
+                  <span class="project-meta">{{ project.mode }} · Created {{ formatTime(project.createdAt) }}</span>
+                </div>
+                <div class="project-actions">
+                  <button
+                    type="button"
+                    class="edit-btn"
+                    title="Rename project"
+                    (click)="renameProject(project.id, $event)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                  </button>
+                  <button
+                    type="button"
+                    class="delete-btn"
+                    title="Delete project"
+                    (click)="deleteProject(project.id, $event)"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
                     </svg>
                   </button>
                 </div>
-                <div class="message-content" [innerHTML]="message.content | markdown"></div>
-              </article>
-
-              <!-- Streaming indicator -->
-              <article *ngIf="isStreaming()" class="message assistant streaming-message">
-                <div class="message-header">
-                  <div class="message-meta">
-                    <strong>Assistant</strong>
-                    <span class="mode-badge">{{ selectedMode() }}</span>
-                  </div>
+              </div>
+              <div class="project-stats">
+                <div class="stat">
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.5 1A1.5 1.5 0 0 0 1 2.5v11A1.5 1.5 0 0 0 2.5 15h11a1.5 1.5 0 0 0 1.5-1.5v-11A1.5 1.5 0 0 0 13.5 1h-11zm5 2.5c0-.276.224-.5.5-.5h1c.276 0 .5.224.5.5v1c0 .276-.224.5-.5.5H8a.5.5 0 0 1-.5-.5v-1z"/>
+                  </svg>
+                  <span>{{ project.conversationIds.length }} conversations</span>
                 </div>
-                <div class="message-content" [innerHTML]="streamingContent() | markdown"></div>
-                <div class="typing-indicator">
-                  <span></span><span></span><span></span>
+                <div class="stat">
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M4 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H4zm0 1h8a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1z"/>
+                  </svg>
+                  <span>{{ project.fileIds.length }} files</span>
                 </div>
-              </article>
+                <div class="stat">
+                  <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                    <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+                  </svg>
+                  <span>{{ project.artifactIds.length }} outputs</span>
+                </div>
+              </div>
+              <button 
+                type="button" 
+                class="open-project-btn"
+                (click)="selectProject(project)"
+              >
+                Open Project
+              </button>
+            </div>
+          </div>
 
-              <div *ngIf="!templateMessages().length && !isStreaming()" class="empty-conversation">
-                <p>Fill out the template fields above and click Launch to start the conversation.</p>
+          <p *ngIf="!projects().length" class="empty">No projects yet. Create one from a template!</p>
+        </div>
+
+        <!-- PROJECT WORKSPACE VIEW (when project selected) -->
+        <div *ngIf="activeProjectId()" class="templates-pane">
+          <section class="template-catalog">
+            <header class="project-workspace-header">
+              <button class="secondary-button back-btn" type="button" (click)="activeProjectId.set(null); activeConversationId.set(null); activeTemplateId.set(null)">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M19 12H5M12 19l-7-7 7-7"/>
+                </svg>
+                Back to Projects
+              </button>
+              <div class="project-title-section">
+                <div class="project-title-row">
+                  <input 
+                    *ngIf="isEditingProjectTitle()"
+                    type="text" 
+                    class="project-title-input"
+                    [value]="editingProjectTitle()"
+                    (input)="editingProjectTitle.set($any($event.target).value)"
+                    (keydown.enter)="saveProjectTitle()"
+                    (keydown.escape)="cancelEditProjectTitle()"
+                    (blur)="saveProjectTitle()"
+                    #projectTitleInput
+                  />
+                  <h1 *ngIf="!isEditingProjectTitle()" class="project-title">{{ activeProject()?.title }}</h1>
+                  <button 
+                    *ngIf="!isEditingProjectTitle()"
+                    class="icon-button edit-title-btn" 
+                    type="button" 
+                    title="Edit project name"
+                    (click)="startEditingProjectTitle()"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                    </svg>
+                  </button>
+                </div>
+                <span class="project-mode-badge">{{ activeProject()?.mode }}</span>
+              </div>
+            </header>
+
+            <!-- Project Resources -->
+            <div class="project-resources">
+              <div class="resource-section">
+                <div class="section-header">
+                  <h3>💬 Conversations</h3>
+                  <button class="icon-button" type="button" title="New conversation" (click)="createConversation()">+</button>
+                </div>
+                <button
+                  *ngFor="let conv of projectConversations()"
+                  type="button"
+                  class="conversation-item-compact"
+                  [class.active]="activeConversationId() === conv.id"
+                  (click)="selectConversation(conv)"
+                >
+                  <strong>{{ conv.title }}</strong>
+                  <span>{{ conv.messages.length }} messages</span>
+                </button>
+                <p *ngIf="!projectConversations().length" class="empty-small">No conversations yet</p>
+              </div>
+
+              <div class="resource-section">
+                <h4>📄 Files ({{ projectFiles().length }})</h4>
+                <div *ngFor="let file of projectFiles().slice(0, 3)" class="resource-item-small">
+                  {{ file.originalName }}
+                </div>
+                <p *ngIf="!projectFiles().length" class="empty-small">No files</p>
+              </div>
+
+              <div class="resource-section">
+                <h4>✨ Outputs ({{ projectArtifacts().length }})</h4>
+                <div *ngFor="let artifact of projectArtifacts().slice(0, 3)" class="resource-item-small">
+                  {{ artifact.title }}
+                </div>
+                <p *ngIf="!projectArtifacts().length" class="empty-small">No outputs</p>
+              </div>
+            </div>
+          </section>
+
+          <!-- Template Builder - SAME as Library > Templates -->
+          <section class="workflow-builder">
+            <header>
+              <div>
+                <h1>{{ activeTemplate().label }}</h1>
+                <p class="template-tagline">{{ activeTemplate().tagline }}</p>
+                <p class="template-description">{{ activeTemplate().description }}</p>
+              </div>
+              <button class="primary-button" type="button" (click)="launchWorkflow()">Launch</button>
+            </header>
+
+            <div class="workflow-progress">
+              <div class="progress-steps">
+                <button 
+                  type="button" 
+                  class="progress-step" 
+                  [class.active]="activeWorkflowStep() === 'frame'"
+                  [class.completed]="activeWorkflowStep() === 'context' || activeWorkflowStep() === 'output'"
+                  (click)="goToWorkflowStep('frame')"
+                >
+                  <span class="step-number">1</span>
+                  <span class="step-label">Frame</span>
+                </button>
+                
+                <div class="progress-arrow" [class.completed]="activeWorkflowStep() === 'context' || activeWorkflowStep() === 'output'">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </div>
+                
+                <button 
+                  type="button" 
+                  class="progress-step" 
+                  [class.active]="activeWorkflowStep() === 'context'"
+                  [class.completed]="activeWorkflowStep() === 'output'"
+                  (click)="goToWorkflowStep('context')"
+                >
+                  <span class="step-number">2</span>
+                  <span class="step-label">Context <span class="optional-badge">Optional</span></span>
+                </button>
+                
+                <div class="progress-arrow" [class.completed]="activeWorkflowStep() === 'output'">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M5 12h14M12 5l7 7-7 7"/>
+                  </svg>
+                </div>
+                
+                <button 
+                  type="button" 
+                  class="progress-step" 
+                  [class.active]="activeWorkflowStep() === 'output'"
+                  (click)="goToWorkflowStep('output')"
+                >
+                  <span class="step-number">3</span>
+                  <span class="step-label">Output</span>
+                </button>
               </div>
             </div>
 
-            <!-- Template Composer -->
-            <form class="composer template-composer" (submit)="sendMessage(); $event.preventDefault()">
-              <div class="composer-input">
+            <div class="workflow-context">
+              <div>
+                <span>AI mode</span>
+                <strong>{{ activeTemplate().mode }}</strong>
+              </div>
+              <div>
+                <span>Target output</span>
+                <strong>{{ activeTemplate().output }}</strong>
+              </div>
+              <div>
+                <span>Files</span>
+                <strong>{{ selectedFileLabel() }}</strong>
+              </div>
+            </div>
+
+            <div class="block-grid">
+              <label *ngFor="let block of workflowBlocks(); trackBy: trackByBlockId" class="field workflow-block" [class.checkbox-field]="block.type === 'checkbox'">
+                <div class="field-header">
+                  <span>{{ block.label }}</span>
+                  <button 
+                    *ngIf="block.helpText"
+                    type="button" 
+                    class="help-icon" 
+                    [title]="block.helpText"
+                    tabindex="-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <circle cx="12" cy="12" r="10"></circle>
+                      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                  </button>
+                </div>
+                
+                <select *ngIf="block.type === 'select'" [ngModel]="block.value" (ngModelChange)="updateBlockValue(block.id, $event)">
+                  <option value="">{{ block.placeholder }}</option>
+                  <option *ngFor="let option of block.options" [value]="option">{{ option }}</option>
+                </select>
+                
+                <div *ngIf="block.type === 'checkbox'" class="checkbox-wrapper">
+                  <input 
+                    type="checkbox" 
+                    [id]="'checkbox-' + block.id"
+                    [checked]="block.checked" 
+                    (change)="updateCheckboxValue(block.id, $any($event.target).checked)"
+                  />
+                  <label [for]="'checkbox-' + block.id">{{ block.placeholder || block.label }}</label>
+                </div>
+                
+                <div *ngIf="!block.type || block.type === 'text'" class="textarea-wrapper">
+                  <textarea 
+                    [ngModel]="block.value" 
+                    (ngModelChange)="updateBlockValue(block.id, $event)"
+                    [placeholder]="block.placeholder"
+                    [maxlength]="block.maxLength || 5000"
+                    rows="3"
+                  ></textarea>
+                  <div class="field-footer">
+                    <p *ngIf="block.example" class="field-example">
+                      💡 Example: {{ block.example }}
+                    </p>
+                    <span *ngIf="block.maxLength" class="char-count" [class.near-limit]="block.value.length > block.maxLength * 0.9">
+                      {{ block.value.length }} / {{ block.maxLength }}
+                    </span>
+                  </div>
+                </div>
+              </label>
+            </div>
+
+            <section class="workflow-attach">
+              <div class="workflow-attach-header">
+                <div>
+                  <h3>Attach Context</h3>
+                  <p>Upload new files or select from your library to attach to this workflow.</p>
+                </div>
+                <label class="upload-button secondary-button">
+                  <input type="file" multiple (change)="upload($event)">
+                  📎 Upload Files
+                </label>
+              </div>
+              <div class="file-select-grid">
+                <button
+                  *ngFor="let file of files()"
+                  type="button"
+                  [class.active]="selectedFileIds().includes(file.id)"
+                  (click)="toggleFile(file.id)"
+                >
+                  📎 {{ file.originalName }}
+                </button>
+                <p *ngIf="!files().length" class="empty-state-small">No files yet. Upload some to get started!</p>
+              </div>
+            </section>
+
+            <!-- PROJECT CONVERSATION -->
+            <section *ngIf="activeConversation()" class="project-conversation">
+              <div class="conversation-header">
+                <h3>💬 Conversation</h3>
+                <span class="message-count">{{ activeConversation()?.messages.length || 0 }} messages</span>
+              </div>
+
+              <div class="messages project-messages">
+                <article *ngFor="let message of activeConversation()?.messages; let i = index" 
+                         class="message" 
+                         [class.user]="message.role === 'user'"
+                         [class.assistant]="message.role === 'assistant'">
+                  <div class="message-header">
+                    <div class="message-meta">
+                      <strong>{{ message.role === 'user' ? 'You' : 'Assistant' }}</strong>
+                      <span class="mode-badge">{{ message.mode }}</span>
+                      <span class="timestamp">{{ formatTime(message.createdAt) }}</span>
+                    </div>
+                    <button class="copy-btn" type="button" title="Copy message" (click)="copyMessage(message.content)">
+                      <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4 1.5H3a2 2 0 0 0-2 2V14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V3.5a2 2 0 0 0-2-2h-1v1h1a1 1 0 0 1 1 1V14a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3.5a1 1 0 0 1 1-1h1v-1z"/>
+                        <path d="M9.5 1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-3a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5h3zm-3-1A1.5 1.5 0 0 0 5 1.5v1A1.5 1.5 0 0 0 6.5 4h3A1.5 1.5 0 0 0 11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3z"/>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="message-content" [innerHTML]="message.content | markdown"></div>
+                </article>
+
+                <!-- Streaming Indicator -->
+                <article *ngIf="isStreaming()" class="message assistant streaming">
+                  <div class="message-header">
+                    <div class="message-meta">
+                      <strong>Assistant</strong>
+                      <span class="mode-badge">{{ selectedMode() }}</span>
+                      <span class="timestamp">now</span>
+                    </div>
+                    <div class="typing-indicator">
+                      <span></span><span></span><span></span>
+                    </div>
+                  </div>
+                  <div class="message-content streaming-content" [innerHTML]="streamingContent() | markdown"></div>
+                </article>
+              </div>
+
+              <!-- Message Composer -->
+              <form class="composer project-composer" (ngSubmit)="sendMessage()">
                 <textarea
                   [ngModel]="draft()"
                   (ngModelChange)="draft.set($event)"
                   (keydown.enter)="onTextareaKeydown($event)"
                   name="draft"
                   rows="3"
-                  placeholder="Continue the conversation (Enter to send, Shift+Enter for new line)..."
+                  placeholder="Continue the conversation... (Enter to send, Shift+Enter for new line)"
+                  [disabled]="busy()"
                 ></textarea>
-              </div>
-              <div class="composer-actions">
-                <button 
-                  type="button" 
-                  class="secondary-button"
-                  (click)="launchWorkflow()"
-                  title="Re-run with current parameters">
-                  Re-run
-                </button>
-                <button class="primary-button send-btn" type="submit" [disabled]="busy() || !draft().trim()">
-                  <span *ngIf="!busy()">Send</span>
-                  <span *ngIf="busy()" class="loading">Sending...</span>
-                </button>
-              </div>
-            </form>
+                <div class="composer-actions">
+                  <button type="submit" class="send-button" [disabled]="!draft().trim() || busy()">
+                    <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                      <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11ZM6.636 10.07l2.761 4.338L14.13 2.576 6.636 10.07Zm6.787-8.201L1.591 6.602l4.339 2.76 7.494-7.493Z"/>
+                    </svg>
+                    Send
+                  </button>
+                </div>
+              </form>
+            </section>
           </section>
+        </div>
+      </section>
+
+      <!-- LIBRARY (Templates, Files, Outputs combined) -->
+      <section *ngSwitchCase="'library'" class="library-pane">
+        <div class="library-header">
+          <h1>Library</h1>
+          <nav class="library-tabs">
+            <button
+              *ngFor="let tab of librarySubTabs"
+              type="button"
+              [class.active]="activeLibrarySubTab() === tab.id"
+              (click)="activeLibrarySubTab.set(tab.id)"
+            >
+              {{ tab.label }}
+            </button>
+          </nav>
+        </div>
+
+        <!-- TEMPLATES SUB-TAB -->
+        <section *ngIf="activeLibrarySubTab() === 'templates'" class="templates-section">
+          <div class="template-catalog">
+            <header>
+              <h2>Templates</h2>
+              <span>{{ filteredTemplates().length }} of {{ templates().length }} workflows</span>
+            </header>
+
+            <!-- Category Filter Buttons -->
+            <div class="category-filters">
+              <button
+                *ngFor="let category of categories"
+                type="button"
+                class="category-btn"
+                [class.active]="selectedCategory() === category.id"
+                [title]="category.description"
+                (click)="selectedCategory.set(category.id)"
+              >
+                {{ category.label }}
+              </button>
+            </div>
+
+            <div cdkDropList (cdkDropListDropped)="reorderTemplates($event)">
+              <button
+                *ngFor="let template of filteredTemplates()"
+                type="button"
+                class="workflow-card"
+                cdkDrag
+                [class.active]="activeTemplate().id === template.id"
+                (click)="selectTemplate(template)"
+              >
+                <svg class="drag-handle" cdkDragHandle width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                  <path d="M7 2a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zM7 8a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm-3 3a1 1 0 1 1-2 0 1 1 0 0 1 2 0zm3 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+                </svg>
+                <div class="workflow-card-content">
+                  <strong>{{ template.label }}</strong>
+                  <span>{{ template.tagline }}</span>
+                  <small>{{ template.mode }} · {{ template.output }}</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
+          <section class="workflow-builder">
+            <header>
+              <div>
+                <h1>{{ activeTemplate().label }}</h1>
+                <p class="template-tagline">{{ activeTemplate().tagline }}</p>
+                <p class="template-description">{{ activeTemplate().description }}</p>
+              </div>
+              <button class="primary-button" type="button" (click)="createProjectFromTemplate()">📋 Create Project</button>
+            </header>
+
+            <div class="workflow-context">
+              <div>
+                <span>AI mode</span>
+                <strong>{{ activeTemplate().mode }}</strong>
+              </div>
+              <div>
+                <span>Target output</span>
+                <strong>{{ activeTemplate().output }}</strong>
+              </div>
+              <div>
+                <span>Fields</span>
+                <strong>{{ activeTemplate().blocks.length }} inputs required</strong>
+              </div>
+            </div>
+
+            <!-- READ-ONLY PREVIEW OF FIELDS -->
+            <div class="template-fields-preview">
+              <h3>What You'll Provide:</h3>
+              <div class="preview-fields-list">
+                <div *ngFor="let block of activeTemplate().blocks" class="preview-field">
+                  <span class="field-icon" [ngSwitch]="block.type">
+                    <span *ngSwitchCase="'select'">📋</span>
+                    <span *ngSwitchCase="'checkbox'">☑️</span>
+                    <span *ngSwitchDefault>✏️</span>
+                  </span>
+                  <div class="field-info">
+                    <strong>{{ block.label }}</strong>
+                    <p *ngIf="block.placeholder">{{ block.placeholder }}</p>
+                    <div *ngIf="block.type === 'select' && block.options" class="field-options">
+                      <span class="option-chip" *ngFor="let opt of block.options">{{ opt }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="template-cta-section">
+              <p class="cta-message">
+                <strong>Ready to use this template?</strong><br>
+                Click "Create Project" above to start working with this workflow. You'll be able to fill in the fields, attach files, and launch the AI assistant.
+              </p>
+            </div>
+          </section>
+        </section>
+
+        <!-- FILES SUB-TAB -->
+        <section *ngIf="activeLibrarySubTab() === 'files'" class="files-section">
+          <header>
+            <h2>Files</h2>
+            <label class="upload-button">
+              <input type="file" multiple (change)="upload($event)">
+              Upload
+            </label>
+          </header>
+
+          <div class="table">
+            <div class="table-row table-head">
+              <span>Name</span>
+              <span>Type</span>
+              <span>Size</span>
+              <span>Added</span>
+              <span>Action</span>
+            </div>
+            <div *ngFor="let file of files()" class="table-row">
+              <span>{{ file.originalName }}</span>
+              <span>{{ file.mimeType || 'unknown' }}</span>
+              <span>{{ formatBytes(file.size) }}</span>
+              <span>{{ file.createdAt | date:'short' }}</span>
+              <span>
+                <button
+                  type="button"
+                  class="delete-file-btn"
+                  title="Delete file"
+                  (click)="deleteFile(file.id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
+                  </svg>
+                </button>
+              </span>
+            </div>
+          </div>
+
+          <p *ngIf="!files().length" class="empty">No files uploaded.</p>
+        </section>
+
+        <!-- OUTPUTS SUB-TAB -->
+        <section *ngIf="activeLibrarySubTab() === 'outputs'" class="outputs-section">
+          <div class="artifact-list">
+            <header>
+              <h2>Outputs</h2>
+              <span>{{ artifacts().length }} saved</span>
+            </header>
+
+            <button
+              *ngFor="let artifact of artifacts()"
+              type="button"
+              class="artifact-item"
+              [class.active]="previewArtifact()?.id === artifact.id"
+              (click)="previewArtifact.set(artifact)"
+            >
+              <strong>{{ artifact.title }}</strong>
+              <span>{{ artifact.kind }} · {{ artifact.createdAt | date:'short' }}</span>
+            </button>
+
+            <p *ngIf="!artifacts().length" class="empty">Generated code blocks, docs, and product outputs will appear here.</p>
+          </div>
+
+          <article class="artifact-preview" *ngIf="previewArtifact(); else noArtifact">
+            <header>
+              <div>
+                <h1>{{ previewArtifact()?.title }}</h1>
+                <span>{{ previewArtifact()?.kind }}</span>
+              </div>
+            </header>
+            <pre>{{ previewArtifact()?.content }}</pre>
+          </article>
+
+          <ng-template #noArtifact>
+            <div class="empty-state">
+              <h1>No output selected</h1>
+              <p>Run a code, docs, or product task to create a saved output.</p>
+            </div>
+          </ng-template>
         </section>
       </section>
 
-      <section *ngSwitchCase="'files'" class="tool-pane">
-        <header>
-          <h1>Files</h1>
-          <label class="upload-button">
-            <input type="file" multiple (change)="upload($event)">
-            Upload
-          </label>
-        </header>
-
-        <div class="table">
-          <div class="table-row table-head">
-            <span>Name</span>
-            <span>Type</span>
-            <span>Size</span>
-            <span>Added</span>
-            <span>Action</span>
-          </div>
-          <div *ngFor="let file of files()" class="table-row">
-            <span>{{ file.originalName }}</span>
-            <span>{{ file.mimeType || 'unknown' }}</span>
-            <span>{{ formatBytes(file.size) }}</span>
-            <span>{{ file.createdAt | date:'short' }}</span>
-            <span>
-              <button
-                type="button"
-                class="delete-file-btn"
-                title="Delete file"
-                (click)="deleteFile(file.id)"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6"/>
-                </svg>
-              </button>
-            </span>
-          </div>
-        </div>
-
-        <p *ngIf="!files().length" class="empty">No files uploaded.</p>
-      </section>
-
-      <section *ngSwitchCase="'outputs'" class="outputs-pane">
-        <div class="artifact-list">
-          <header>
-            <h1>Outputs</h1>
-            <span>{{ artifacts().length }} saved</span>
-          </header>
-
-          <button
-            *ngFor="let artifact of artifacts()"
-            type="button"
-            class="artifact-item"
-            [class.active]="previewArtifact()?.id === artifact.id"
-            (click)="previewArtifact.set(artifact)"
-          >
-            <strong>{{ artifact.title }}</strong>
-            <span>{{ artifact.kind }} · {{ artifact.createdAt | date:'short' }}</span>
-          </button>
-
-          <p *ngIf="!artifacts().length" class="empty">Generated code blocks, docs, and product outputs will appear here.</p>
-        </div>
-
-        <article class="artifact-preview" *ngIf="previewArtifact(); else noArtifact">
-          <header>
-            <div>
-              <h1>{{ previewArtifact()?.title }}</h1>
-              <span>{{ previewArtifact()?.kind }}</span>
-            </div>
-          </header>
-          <pre>{{ previewArtifact()?.content }}</pre>
-        </article>
-
-        <ng-template #noArtifact>
-          <div class="empty-state">
-            <h1>No output selected</h1>
-            <p>Run a code, docs, or product task to create a saved output.</p>
-          </div>
-        </ng-template>
-      </section>
-
-      <section *ngSwitchCase="'models'" class="tool-pane">
-        <header>
-          <h1>Models</h1>
-          <button class="secondary-button" type="button" (click)="refreshModels()">Reload models</button>
-        </header>
-
-        <p class="muted">Source: {{ modelSource() }}</p>
-
-        <div class="model-grid">
-          <button
-            *ngFor="let model of models()"
-            type="button"
-            [class.active]="selectedModel() === model"
-            (click)="selectedModel.set(model)"
-          >
-            {{ model }}
-          </button>
-        </div>
-      </section>
-
+      <!-- SETTINGS (includes Models) -->
       <section *ngSwitchCase="'settings'" class="tool-pane settings-pane">
         <header>
           <h1>Settings</h1>
           <button class="primary-button" type="button" (click)="saveSettings()" [disabled]="busy()">Save</button>
         </header>
 
-        <div class="settings-grid">
-          <label class="field">
-            <span>OpenAI API key</span>
-            <input
-              type="password"
-              autocomplete="off"
-              [ngModel]="apiKeyDraft()"
-              (ngModelChange)="apiKeyDraft.set($event)"
-              placeholder="Leave blank to keep existing key"
+        <section class="settings-section">
+          <h2>OpenAI Configuration</h2>
+          <div class="settings-grid">
+            <label class="field">
+              <span>OpenAI API Key</span>
+              <input
+                type="password"
+                autocomplete="off"
+                [ngModel]="apiKeyDraft()"
+                (ngModelChange)="apiKeyDraft.set($event)"
+                placeholder="Leave blank to keep existing key"
+              >
+            </label>
+          </div>
+          <p class="muted">
+            Key configured: {{ settings()?.hasOpenAiKey ? 'yes' : 'no' }}. UI-saved keys are local development storage only.
+          </p>
+        </section>
+
+        <section class="settings-section">
+          <h2>Code Repository Integrations</h2>
+          <p class="muted">
+            Connect your code repositories for context and reference. These URLs are saved locally.
+          </p>
+          
+          <div class="settings-grid">
+            <label class="field">
+              <span>GitHub Repository URL</span>
+              <input
+                type="url"
+                [ngModel]="githubUrlDraft()"
+                (ngModelChange)="githubUrlDraft.set($event)"
+                placeholder="https://github.com/username/repo"
+              >
+              <span class="field-hint">Example: https://github.com/microsoft/vscode</span>
+            </label>
+
+            <label class="field">
+              <span>Bitbucket Repository URL</span>
+              <input
+                type="url"
+                [ngModel]="bitbucketUrlDraft()"
+                (ngModelChange)="bitbucketUrlDraft.set($event)"
+                placeholder="https://bitbucket.org/username/repo"
+              >
+              <span class="field-hint">Example: https://bitbucket.org/atlassian/stash</span>
+            </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>Model Selection</h2>
+          <div class="model-selector-header">
+            <p class="muted">Source: {{ modelSource() }}</p>
+            <button class="secondary-button" type="button" (click)="refreshModels()">Reload Models</button>
+          </div>
+          
+          <div class="settings-grid">
+            <label class="field">
+              <span>Active Model</span>
+              <select [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
+                <option *ngFor="let model of models()" [value]="model">{{ model }}</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="model-grid">
+            <button
+              *ngFor="let model of models()"
+              type="button"
+              class="model-card"
+              [class.active]="selectedModel() === model"
+              (click)="selectedModel.set(model)"
             >
-          </label>
-
-          <label class="field">
-            <span>Default model</span>
-            <input [ngModel]="selectedModel()" (ngModelChange)="selectedModel.set($event)">
-          </label>
-        </div>
-
-        <p class="muted">
-          Key configured: {{ settings()?.hasOpenAiKey ? 'yes' : 'no' }}. UI-saved keys are local development storage only.
-        </p>
+              <strong>{{ model }}</strong>
+              <span *ngIf="selectedModel() === model" class="active-badge">Active</span>
+            </button>
+          </div>
+        </section>
       </section>
     </section>
   </section>
 </main>
+
+<!-- Toast Notifications -->
+<div class="toast-container">
+  @for (toast of toasts(); track toast.id) {
+    <div class="toast" [class.toast-success]="toast.type === 'success'" [class.toast-error]="toast.type === 'error'" [class.toast-loading]="toast.type === 'loading'">
+      <div class="toast-content">
+        <div class="toast-icon">
+          @if (toast.type === 'success') {
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M16 6L8 14L4 10"/>
+            </svg>
+          }
+          @if (toast.type === 'error') {
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 6L6 14M6 6l8 8"/>
+            </svg>
+          }
+          @if (toast.type === 'loading') {
+            <div class="spinner"></div>
+          }
+        </div>
+        <span class="toast-message">{{ toast.message }}</span>
+      </div>
+      @if (toast.dismissible) {
+        <button class="toast-dismiss" (click)="dismissToast(toast.id)" aria-label="Dismiss">×</button>
+      }
+    </div>
+  }
+</div>
+
