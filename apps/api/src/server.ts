@@ -30,7 +30,23 @@ const upload = multer({
   }
 });
 
-app.use(helmet());
+// Configure Helmet for HTTP deployment (disable HTTPS upgrade requirement)
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", "data:"],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'"],
+      objectSrc: ["'none'"],
+      mediaSrc: ["'self'"],
+      frameSrc: ["'none'"],
+    },
+  },
+  hsts: false, // Disable HSTS for HTTP deployment
+}));
 app.use(cors({ origin: process.env['WEB_ORIGIN'] || 'http://localhost:4200' }));
 app.use(express.json({ limit: '1mb' }));
 
