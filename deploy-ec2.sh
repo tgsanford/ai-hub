@@ -43,7 +43,7 @@ if command -v pm2 &> /dev/null; then
         mkdir -p logs
         
         # Start with PM2
-        pm2 start ecosystem.config.js
+        pm2 start ecosystem.config.cjs
         pm2 save
         echo -e "${GREEN}✅ Application started successfully${NC}"
     fi

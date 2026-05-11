@@ -18,7 +18,7 @@ npm install --legacy-peer-deps
 npm run build
 
 # Start with PM2
-pm2 start ecosystem.config.js
+pm2 start ecosystem.config.cjs
 pm2 startup  # Follow instructions to enable auto-start
 pm2 save
 ```
