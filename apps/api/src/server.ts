@@ -417,7 +417,7 @@ app.get('/api/projects/:id', async (req, res, next) => {
 app.put('/api/projects/:id', async (req, res, next) => {
   const schema = z.object({
     title: z.string().trim().min(1).optional(),
-    blocks: z.record(z.any()).optional(),
+    blocks: z.record(z.string(), z.any()).optional(),
     fileIds: z.array(z.string()).optional()
   });
 
