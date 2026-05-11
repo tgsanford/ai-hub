@@ -36,6 +36,7 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       scriptSrc: ["'self'"],
+      scriptSrcAttr: ["'unsafe-hashes'", "'sha256-IT5vWN+Mz4HQ26TqWL7rMQVzvTWYttkhDr6qOCX3eig='"], // Allow Angular's onload for CSS
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", "data:"],
       connectSrc: ["'self'"],
